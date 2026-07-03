@@ -295,6 +295,8 @@
             max-width: 80%;
             line-height: 1.5;
             font-size: 15px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         .message-ai {
             display: flex;
@@ -369,6 +371,9 @@
         .send-btn:not(:disabled) {
             background: var(--accent-blue);
             color: white;
+        }
+        .send-btn:disabled {
+            cursor: not-allowed;
         }
         .disclaimer {
             text-align: center;
@@ -465,10 +470,11 @@
         <div class="header-right">
             <div class="model-wrapper">
                 <select id="model-select" class="model-selector">
+                    <option value="GTC-2.5 Preview" selected>GTC-2.5 Preview</option>
                     <option value="ESFT GTC-2">ESFT GTC-2</option>
                     <option value="GTC-2 Large (Base)">GTC-2 Large (Base)</option>
                 </select>
-                <div class="model-hover-card" id="model-description-card">Early Supervised Fine-Tuned GTC-2 model for improved conversational performance</div>
+                <div class="model-hover-card" id="model-description-card">The preview of the next generation of TAI Research models</div>
             </div>
             <button class="lang-selector" id="lang-toggle"><i class="fas fa-globe"></i> <span id="lang-label">中文</span></button>
         </div>
@@ -498,26 +504,39 @@
 
 <script>
     // ---------- 后端配置 ----------
-    const API_BASE = 'https://20e8-2409-8a20-833-d11-9945-2e4c-b471-c8c0.ngrok-free.app';
+    //const API_BASE = 'http://127.0.0.1:5001';
+    const API_BASE = 'https://8d42-2409-8a20-831-fb1-40eb-45ec-324c-9fdf.ngrok-free.app';
     let authToken = localStorage.getItem('authToken');
     let currentUser = null;
     let isSending = false;
-    let currentLang = 'en';        // 默认英文
-    let isSidebarCollapsed = false; // 桌面折叠状态
+    let currentLang = 'en';
+    let isSidebarCollapsed = false;
 
     // 国际化资源
     const i18nMap = {
         en: {
-            newChat: "New chat", noHistory: "No conversation history yet", logout: "Log out", loginBtn: "Log in / Sign up",
-            welcomeTitle: "How can I assist you today?", welcomeSub: "Ask me anything, and I'll do my best to provide helpful, accurate information.",
-            disclaimer: "Sigma can make mistakes. Consider checking important information.", placeholder: "Message Sigma...",
+            newChat: "New chat", 
+            noHistory: "No conversation history yet", 
+            logout: "Log out", 
+            loginBtn: "Log in / Sign up",
+            welcomeTitle: "How can I assist you today?", 
+            welcomeSub: "Ask me anything, and I'll do my best to provide helpful, accurate information.",
+            disclaimer: "Sigma can make mistakes. Consider checking important information.", 
+            placeholder: "Message Sigma...",
+            modelDesc0: "The preview of the next generation of TAI Research models",
             modelDesc1: "Early Supervised Fine-Tuned GTC-2 model for improved conversational performance",
             modelDesc2: "A large size of GTC-2 Series Language Base Model which offers better text completion"
         },
         zh: {
-            newChat: "新建对话", noHistory: "暂无历史记录", logout: "退出登录", loginBtn: "登录 / 注册",
-            welcomeTitle: "今天我能帮您什么？", welcomeSub: "向我提问，我会尽力提供准确、有用的信息。",
-            disclaimer: "Sigma 可能会犯错，重要信息请仔细核对。", placeholder: "给 Sigma 发送消息...",
+            newChat: "新建对话", 
+            noHistory: "暂无历史记录", 
+            logout: "退出登录", 
+            loginBtn: "登录 / 注册",
+            welcomeTitle: "今天我能帮您什么？", 
+            welcomeSub: "向我提问，我会尽力提供准确、有用的信息。",
+            disclaimer: "Sigma 可能会犯错，重要信息请仔细核对。", 
+            placeholder: "给 Sigma 发送消息...",
+            modelDesc0: "下一代 TAI Research 模型的预览版",
             modelDesc1: "经过早期监督微调的 GTC-2 模型，对话性能更佳",
             modelDesc2: "GTC-2 系列大尺寸基座模型，文本生成能力更强"
         }
@@ -528,7 +547,6 @@
     const sidebarToggleBtn = document.getElementById('sidebar-toggle');
     const newChatBtn = document.getElementById('new-chat-btn');
     const chatInner = document.getElementById('chat-inner');
-    const welcomeArea = document.getElementById('welcome-area');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const modelSelect = document.getElementById('model-select');
@@ -557,26 +575,29 @@
         messageInput.placeholder = t.placeholder;
         if (sidebarLoginBtn) sidebarLoginBtn.querySelector('span').innerText = t.loginBtn;
         if (logoutBtn) logoutBtn.querySelector('span').innerText = t.logout;
-        // 更新模型描述文案
-        const selected = modelSelect.value;
-        if (selected === 'ESFT GTC-2') modelDescCard.innerText = t.modelDesc1;
-        else modelDescCard.innerText = t.modelDesc2;
+        updateModelDescription();
         langLabelSpan.innerText = currentLang === 'en' ? '中文' : 'English';
     }
 
-    function toggleLanguage() { currentLang = currentLang === 'en' ? 'zh' : 'en'; setLangUI(); }
+    function toggleLanguage() { 
+        currentLang = currentLang === 'en' ? 'zh' : 'en'; 
+        setLangUI(); 
+    }
 
-    // 模型切换悬浮描述
     function updateModelDescription() {
         const val = modelSelect.value;
         const t = i18nMap[currentLang];
-        if (val === 'ESFT GTC-2') modelDescCard.innerText = t.modelDesc1;
-        else modelDescCard.innerText = t.modelDesc2;
+        let desc = '';
+        if (val === 'GTC-2.5 Preview') desc = t.modelDesc0;
+        else if (val === 'ESFT GTC-2') desc = t.modelDesc1;
+        else if (val === 'GTC-2 Large (Base)') desc = t.modelDesc2;
+        modelDescCard.innerText = desc;
     }
+    
     modelSelect.addEventListener('change', updateModelDescription);
     langToggle.addEventListener('click', toggleLanguage);
 
-    // 侧栏折叠（桌面）
+    // 侧栏折叠
     function toggleSidebarDesktop() {
         if (window.innerWidth > 768) {
             isSidebarCollapsed = !isSidebarCollapsed;
@@ -586,26 +607,25 @@
         }
     }
     sidebarToggleBtn.addEventListener('click', toggleSidebarDesktop);
-    // 点击遮罩关闭移动端侧边栏
+    
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && !sidebarEl.contains(e.target) && !sidebarToggleBtn.contains(e.target)) {
             sidebarEl.classList.remove('open');
         }
     });
 
-    // 新对话
     function startNewChat() {
         chatInner.innerHTML = `<div class="welcome-area" id="welcome-area">
             <div class="welcome-title" id="welcome-title">${i18nMap[currentLang].welcomeTitle}</div>
             <div class="welcome-sub" style="color:#9aa0a6;">${i18nMap[currentLang].welcomeSub}</div>
         </div>`;
-        // 重新绑定全局元素
-        window.welcomeAreaDiv = document.getElementById('welcome-area');
         if (window.innerWidth <= 768) sidebarEl.classList.remove('open');
     }
     newChatBtn.addEventListener('click', startNewChat);
 
-    // 发送消息（与后端完整交互）
+    // ============================================================
+    // 核心：发送消息（自动适配流式/非流式）
+    // ============================================================
     async function sendMessage() {
         if (isSending) return;
         const text = messageInput.value.trim();
@@ -613,7 +633,7 @@
         isSending = true;
         sendBtn.disabled = true;
 
-        // 移除欢迎区域（如果存在）
+        // 移除欢迎区域
         if (document.getElementById('welcome-area')) document.getElementById('welcome-area').remove();
 
         // 添加用户消息
@@ -630,46 +650,137 @@
         aiMsgDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div>
                               <div class="message-bubble"><div class="typing-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>`;
         chatInner.appendChild(aiMsgDiv);
-        document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
 
         try {
-            const modelType = modelSelect.value.includes('Large') ? 'large' : 'esft';
+            // 映射模型名称到后端标识
+            const modelName = modelSelect.value;
+            let modelType = '';
+            if (modelName === 'GTC-2.5 Preview') modelType = 'gtc25';
+            else if (modelName === 'ESFT GTC-2') modelType = 'esft';
+            else if (modelName === 'GTC-2 Large (Base)') modelType = 'large';
+            else modelType = 'esft';
+
+            // 🔥 关键：只有 GTC-2.5 Preview 使用流式
+            const useStream = (modelType === 'gtc25');
+
             const headers = { 'Content-Type': 'application/json' };
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-            const resp = await fetch(`${API_BASE}/generate`, {
+            
+            const response = await fetch(`${API_BASE}/generate`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ text, max_len: 200, temperature: 0.7, model: modelType })
+                body: JSON.stringify({ 
+                    text, 
+                    max_len: 512, 
+                    temperature: 0.7, 
+                    model: modelType,
+                    stream: useStream  // 只有 GTC-2.5 才启用流式
+                })
             });
-            if (!resp.ok) throw new Error(`API error ${resp.status}`);
-            const data = await resp.json();
-            const reply = data.generated_text || "No response from model.";
-            aiMsgDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble">${escapeHtml(reply)}</div>`;
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `API error ${response.status}`);
+            }
+
+            const bubbleDiv = aiMsgDiv.querySelector('.message-bubble');
+            
+            if (useStream) {
+                // ======== 流式模式（GTC-2.5 Preview） ========
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = '';
+                let buffer = '';
+
+                bubbleDiv.innerHTML = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.done) {
+                                    break;
+                                }
+                                if (data.chunk) {
+                                    fullText += data.chunk;
+                                    bubbleDiv.textContent = fullText;
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.warn('Parse error:', e);
+                            }
+                        }
+                    }
+                }
+
+                if (!fullText) {
+                    bubbleDiv.textContent = 'No response from model.';
+                }
+            } else {
+                // ======== 非流式模式（ESFT / Large） ========
+                const data = await response.json();
+                const reply = data.generated_text || 'No response from model.';
+                bubbleDiv.textContent = reply;
+            }
+
             // 保存历史（如果登录）
-            if (authToken) await saveConversation(text, reply);
+            if (authToken) {
+                const finalText = bubbleDiv.textContent;
+                await saveConversation(text, finalText);
+                await loadHistory();
+            }
+
         } catch (err) {
-            aiMsgDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble" style="color:#f28b82;">⚠️ Backend error. Please check API connectivity.</div>`;
+            console.error('Error:', err);
+            const bubbleDiv = aiMsgDiv.querySelector('.message-bubble');
+            bubbleDiv.innerHTML = `<span style="color:#f28b82;">⚠️ Error: ${escapeHtml(err.message)}</span>`;
         } finally {
             isSending = false;
             sendBtn.disabled = false;
-            document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
-            if (authToken) loadHistory(); // 刷新历史
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
     }
-    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    function escapeHtml(str) { 
+        return str.replace(/[&<>]/g, function(m){ 
+            if(m==='&') return '&amp;'; 
+            if(m==='<') return '&lt;'; 
+            if(m==='>') return '&gt;'; 
+            return m;
+        }); 
+    }
+
     async function saveConversation(input, output) {
         if (!authToken) return;
         try {
             await fetch(`${API_BASE}/save_conversation`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                method: 'POST', 
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'Authorization': `Bearer ${authToken}` 
+                },
                 body: JSON.stringify({ input, output, model: modelSelect.value })
             });
-        } catch(e) { console.warn(e); }
+        } catch(e) { console.warn('Save failed:', e); }
     }
+
     async function loadHistory() {
         if (!authToken) return;
         try {
-            const res = await fetch(`${API_BASE}/history`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+            const res = await fetch(`${API_BASE}/history`, { 
+                headers: { 'Authorization': `Bearer ${authToken}` } 
+            });
             if (!res.ok) throw new Error();
             const data = await res.json();
             if (data.status === 'success' && data.history) {
@@ -682,60 +793,87 @@
                     historyListDiv.appendChild(div);
                 });
             }
-        } catch(e) { console.log(e); }
+        } catch(e) { console.log('History load failed:', e); }
     }
+
     function loadConversationToUI(conv) {
         startNewChat();
         if (document.getElementById('welcome-area')) document.getElementById('welcome-area').remove();
-        const userDiv = document.createElement('div'); userDiv.className = 'message message-user'; userDiv.innerHTML = `<div class="message-bubble">${escapeHtml(conv.input)}</div>`;
-        const aiDiv = document.createElement('div'); aiDiv.className = 'message message-ai'; aiDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble">${escapeHtml(conv.output)}</div>`;
-        chatInner.appendChild(userDiv); chatInner.appendChild(aiDiv);
+        const userDiv = document.createElement('div'); 
+        userDiv.className = 'message message-user'; 
+        userDiv.innerHTML = `<div class="message-bubble">${escapeHtml(conv.input)}</div>`;
+        const aiDiv = document.createElement('div'); 
+        aiDiv.className = 'message message-ai'; 
+        aiDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble">${escapeHtml(conv.output)}</div>`;
+        chatInner.appendChild(userDiv); 
+        chatInner.appendChild(aiDiv);
     }
 
-    // 登录/注册模态管理
+    // ============================================================
+    // 登录/注册
+    // ============================================================
     const loginModal = document.getElementById('login-modal');
     const registerModal = document.getElementById('register-modal');
+    
     function showLogin() { loginModal.style.display = 'flex'; registerModal.style.display = 'none'; }
     function showRegister() { registerModal.style.display = 'flex'; loginModal.style.display = 'none'; }
     function closeModals() { loginModal.style.display = 'none'; registerModal.style.display = 'none'; }
+    
     document.getElementById('switch-to-register')?.addEventListener('click', showRegister);
     document.getElementById('switch-to-login')?.addEventListener('click', showLogin);
-    window.addEventListener('click', (e) => { if(e.target === loginModal || e.target === registerModal) closeModals(); });
+    window.addEventListener('click', (e) => { 
+        if(e.target === loginModal || e.target === registerModal) closeModals(); 
+    });
 
     async function doLogin() {
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
         try {
-            const res = await fetch(`${API_BASE}/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+            const res = await fetch(`${API_BASE}/login`, { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({username,password}) 
+            });
             if(!res.ok) throw new Error();
             const data = await res.json();
-            authToken = data.token; currentUser = { username: data.username, role: data.role };
+            authToken = data.token; 
+            currentUser = { username: data.username, role: data.role };
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('userData', JSON.stringify(currentUser));
             updateUIAfterLogin();
             closeModals();
-            loadHistory();
+            await loadHistory();
         } catch(e) { alert('Login failed'); }
     }
+
     async function doRegister() {
         const username = document.getElementById('reg-username').value;
         const email = document.getElementById('reg-email').value;
         const password = document.getElementById('reg-password').value;
         try {
-            const res = await fetch(`${API_BASE}/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,email,password}) });
+            const res = await fetch(`${API_BASE}/register`, { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({username,email,password}) 
+            });
             if(!res.ok) throw new Error();
             alert('Registration success! Please log in.');
             showLogin();
         } catch(e) { alert('Register failed'); }
     }
+
     document.getElementById('do-login')?.addEventListener('click', doLogin);
     document.getElementById('do-register')?.addEventListener('click', doRegister);
+
     function logout() {
-        authToken = null; currentUser = null;
-        localStorage.removeItem('authToken'); localStorage.removeItem('userData');
+        authToken = null; 
+        currentUser = null;
+        localStorage.removeItem('authToken'); 
+        localStorage.removeItem('userData');
         updateUIAfterLogout();
         startNewChat();
     }
+
     function updateUIAfterLogin() {
         sidebarLoginBtn.style.display = 'none';
         userInfoDiv.style.display = 'block';
@@ -743,26 +881,50 @@
         userRoleSpan.innerText = currentUser.role === 'pro' ? 'Pro Account' : 'Free Account';
         userAvatarSpan.innerText = currentUser.username.charAt(0).toUpperCase();
     }
+
     function updateUIAfterLogout() {
         sidebarLoginBtn.style.display = 'block';
         userInfoDiv.style.display = 'none';
-        historyListDiv.innerHTML = '<div class="history-item" style="color: var(--text-secondary);">No conversation history yet</div>';
+        historyListDiv.innerHTML = '<div class="history-item" style="color: var(--text-secondary);" data-key="noHistory">No conversation history yet</div>';
     }
+
     logoutBtn.addEventListener('click', logout);
     sidebarLoginBtn.addEventListener('click', showLogin);
+
     function checkLoginStatus() {
         const token = localStorage.getItem('authToken');
         const user = localStorage.getItem('userData');
-        if(token && user) { authToken = token; currentUser = JSON.parse(user); updateUIAfterLogin(); loadHistory(); }
-        else updateUIAfterLogout();
+        if(token && user) { 
+            authToken = token; 
+            currentUser = JSON.parse(user); 
+            updateUIAfterLogin(); 
+            loadHistory(); 
+        } else {
+            updateUIAfterLogout();
+        }
     }
 
+    // ============================================================
     // 输入框事件
-    messageInput.addEventListener('input', function() { sendBtn.disabled = !this.value.trim(); this.style.height = 'auto'; this.style.height = Math.min(120, this.scrollHeight)+'px'; });
-    messageInput.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !e.shiftKey && !sendBtn.disabled) { e.preventDefault(); sendMessage(); } });
+    // ============================================================
+    messageInput.addEventListener('input', function() { 
+        sendBtn.disabled = !this.value.trim() || isSending; 
+        this.style.height = 'auto'; 
+        this.style.height = Math.min(120, this.scrollHeight)+'px'; 
+    });
+    
+    messageInput.addEventListener('keydown', (e) => { 
+        if(e.key === 'Enter' && !e.shiftKey && !sendBtn.disabled) { 
+            e.preventDefault(); 
+            sendMessage(); 
+        } 
+    });
+    
     sendBtn.addEventListener('click', sendMessage);
 
+    // ============================================================
     // 启动
+    // ============================================================
     setLangUI();
     checkLoginStatus();
     updateModelDescription();
