@@ -717,7 +717,7 @@
 
 <script>
     // ---------- 后端配置 ----------
-    // const API_BASE = window.location.origin === 'file://' 
+    // GitHub Pages 或 file:// 时用 ngrok 地址，否则用同源（localhost Flask）
     const isGitHubPages = window.location.hostname.includes('github.io');
     const API_BASE = (window.location.origin === 'file://' || isGitHubPages)
         ? 'https://reactor-sandal-unseen.ngrok-free.dev' 
@@ -1307,6 +1307,15 @@
                                     bubbleDiv.textContent = fullResponse;
                                     chatContainer.scrollTop = chatContainer.scrollHeight;
                                 }
+                                if (data.audio) {
+                                    const audioBytes = atob(data.audio);
+                                    const arrayBuffer = new ArrayBuffer(audioBytes.length);
+                                    const view = new Uint8Array(arrayBuffer);
+                                    for (let i = 0; i < audioBytes.length; i++) view[i] = audioBytes.charCodeAt(i);
+                                    const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+                                    const audioUrl = URL.createObjectURL(audioBlob);
+                                    new Audio(audioUrl).play();
+                                }
                             } catch (e) {
                                 console.warn('Parse error:', e);
                             }
@@ -1322,6 +1331,15 @@
                 const data = await response.json();
                 fullResponse = data.generated_text || 'No response from model.';
                 bubbleDiv.textContent = fullResponse;
+                if (data.audio) {
+                    const audioBytes = atob(data.audio);
+                    const arrayBuffer = new ArrayBuffer(audioBytes.length);
+                    const view = new Uint8Array(arrayBuffer);
+                    for (let i = 0; i < audioBytes.length; i++) view[i] = audioBytes.charCodeAt(i);
+                    const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    new Audio(audioUrl).play();
+                }
             }
 
             if (authToken) {
