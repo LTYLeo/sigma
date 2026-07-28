@@ -458,64 +458,6 @@
         .attachment-btn.has-image {
             color: var(--accent-blue);
         }
-        .mic-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 20px;
-            cursor: pointer;
-            padding: 6px;
-            border-radius: 50%;
-            transition: all 0.2s;
-            display: none;
-            flex-shrink: 0;
-        }
-        .mic-btn:hover {
-            background: rgba(255,255,255,0.06);
-        }
-        .mic-btn.recording {
-            color: #f28b82;
-            animation: micPulse 1.2s infinite;
-        }
-        @keyframes micPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.1); }
-        }
-        .audio-preview-area {
-            display: none;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
-            background: var(--bg-secondary);
-            border-radius: 16px;
-            border: 1px solid var(--border-light);
-            width: fit-content;
-            max-width: 100%;
-        }
-        .audio-preview-area.active {
-            display: flex;
-        }
-        .audio-preview-area .audio-icon {
-            font-size: 18px;
-            color: var(--accent-green);
-        }
-        .audio-preview-area .audio-label {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-        .audio-preview-area .remove-audio {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 16px;
-        }
-        .audio-preview-area .remove-audio:hover {
-            background: rgba(255,255,255,0.06);
-            color: #f28b82;
-        }
         .send-btn {
             background: rgba(255, 255, 255, 0.08);
             border: none;
@@ -608,7 +550,6 @@
             .input-row { padding: 4px 4px 4px 14px; }
             .message-box { font-size: 14px; min-height: 38px; padding: 8px 0; }
             .attachment-btn { font-size: 18px; padding: 4px; }
-            .mic-btn { font-size: 18px; padding: 4px; }
             .send-btn { width: 30px; height: 30px; font-size: 14px; }
             .image-preview-area img { max-height: 50px; max-width: 60px; }
             .image-preview-area .file-name { max-width: 100px; font-size: 12px; }
@@ -663,10 +604,8 @@
         <div class="header-right">
             <div class="model-wrapper">
                 <select id="model-select" class="model-selector">
-                    <option value="GTC-2.5">GTC-2.5</option>
-                    <option value="GTC-2.5o" selected>GTC-2.5o</option>
-                    <option value="GTC-2.5 mini">GTC-2.5 mini</option>
-                    <option value="GTC-2.5V Preview">GTC-2.5V Preview</option>
+                    <option value="GTC-2.5V Preview" selected>GTC-2.5V Preview</option>
+                    <option value="GTC-2.5 Preview">GTC-2.5 Preview</option>
                     <option value="ESFT GTC-2">ESFT GTC-2</option>
                     <option value="GTC-2 Large (Base)">GTC-2 Large (Base)</option>
                 </select>
@@ -693,17 +632,10 @@
                 <span class="file-name" id="preview-file-name">image.jpg</span>
                 <button class="remove-image" id="remove-image-btn"><i class="fas fa-times"></i></button>
             </div>
-            <!-- 音频预览区 -->
-            <div class="audio-preview-area" id="audio-preview-area">
-                <i class="fas fa-waveform audio-icon"></i>
-                <span class="audio-label" id="audio-label">Audio recorded</span>
-                <button class="remove-audio" id="remove-audio-btn"><i class="fas fa-times"></i></button>
-            </div>
             <!-- 输入行 -->
             <div class="input-row" id="input-row">
                 <textarea id="message-input" class="message-box" placeholder="Message Sigma..." rows="1"></textarea>
                 <button class="attachment-btn" id="attachment-btn"><i class="fas fa-paperclip"></i></button>
-                <button class="mic-btn" id="mic-btn"><i class="fas fa-microphone"></i></button>
                 <button class="send-btn" id="send-btn" disabled><i class="fas fa-arrow-up"></i></button>
             </div>
         </div>
@@ -717,9 +649,8 @@
 
 <script>
     // ---------- 后端配置 ----------
-    const API_BASE = window.location.origin === 'file://' 
-        ? 'https://reactor-sandal-unseen.ngrok-free.dev' 
-        : window.location.origin;
+    //const API_BASE = 'http://127.0.0.1:5001';
+    const API_BASE = 'https://5803-2409-8a20-834-ede1-f00f-1713-b95-6941.ngrok-free.app';
     let authToken = localStorage.getItem('authToken');
     let currentUser = null;
     let isSending = false;
@@ -739,12 +670,10 @@
             welcomeSub: "Ask me anything, and I'll do my best to provide helpful, accurate information.",
             disclaimer: "Sigma can make mistakes. Consider checking important information.", 
             placeholder: "Message Sigma...",
-            modelDesc0: "GTC-2.5 with 400M parameters, delivering strong text generation performance",
-            modelDesc1: "Omni-modal model supporting text, image, and audio understanding",
-            modelDesc2: "A compact and efficient preview model of the GTC-2.5 series",
-            modelDesc3: "Research preview of TAI Research's first vision-language model",
-            modelDesc4: "Early Supervised Fine-Tuned GTC-2 model for improved conversational performance",
-            modelDesc5: "A large size of GTC-2 Series Language Base Model which offers better text completion"
+            modelDesc0: "Research preview of TAI Research's first vision-language model",
+            modelDesc1: "The preview of the next generation of TAI Research models",
+            modelDesc2: "Early Supervised Fine-Tuned GTC-2 model for improved conversational performance",
+            modelDesc3: "A large size of GTC-2 Series Language Base Model which offers better text completion"
         },
         zh: {
             newChat: "新建对话", 
@@ -755,12 +684,10 @@
             welcomeSub: "向我提问，我会尽力提供准确、有用的信息。",
             disclaimer: "Sigma 可能会犯错，重要信息请仔细核对。", 
             placeholder: "给 Sigma 发送消息...",
-            modelDesc0: "GTC-2.5 400M 参数版本，文本生成性能强劲",
-            modelDesc1: "支持文本、图像和音频的全模态模型",
-            modelDesc2: "GTC-2.5 系列紧凑高效的预览模型",
-            modelDesc3: "TAI Research 首个视觉语言模型的预览版",
-            modelDesc4: "经过早期监督微调的 GTC-2 模型，对话性能更佳",
-            modelDesc5: "GTC-2 系列大尺寸基座模型，文本生成能力更强"
+            modelDesc0: "TAI Research 首个视觉语言模型的预览版",
+            modelDesc1: "下一代 TAI Research 模型的预览版",
+            modelDesc2: "经过早期监督微调的 GTC-2 模型，对话性能更佳",
+            modelDesc3: "GTC-2 系列大尺寸基座模型，文本生成能力更强"
         }
     };
 
@@ -788,17 +715,7 @@
     const previewImage = document.getElementById('preview-image');
     const previewFileName = document.getElementById('preview-file-name');
     const removeImageBtn = document.getElementById('remove-image-btn');
-    const micBtn = document.getElementById('mic-btn');
-    const audioPreviewArea = document.getElementById('audio-preview-area');
-    const audioLabel = document.getElementById('audio-label');
-    const removeAudioBtn = document.getElementById('remove-audio-btn');
     const inputArea = document.getElementById('input-area');
-
-    // 录音状态
-    let isRecording = false;
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let recordedAudioBase64 = null;
 
     // 辅助函数
     function setLangUI() {
@@ -826,25 +743,18 @@
         const val = modelSelect.value;
         const t = i18nMap[currentLang];
         let desc = '';
-        if (val === 'GTC-2.5') desc = t.modelDesc0;
-        else if (val === 'GTC-2.5o') desc = t.modelDesc1;
-        else if (val === 'GTC-2.5 mini') desc = t.modelDesc2;
-        else if (val === 'GTC-2.5V Preview') desc = t.modelDesc3;
-        else if (val === 'ESFT GTC-2') desc = t.modelDesc4;
-        else if (val === 'GTC-2 Large (Base)') desc = t.modelDesc5;
+        if (val === 'GTC-2.5V Preview') desc = t.modelDesc0;
+        else if (val === 'GTC-2.5 Preview') desc = t.modelDesc1;
+        else if (val === 'ESFT GTC-2') desc = t.modelDesc2;
+        else if (val === 'GTC-2 Large (Base)') desc = t.modelDesc3;
         modelDescCard.innerText = desc;
     }
     
     modelSelect.addEventListener('change', () => {
         updateModelDescription();
         toggleAttachmentButton();
-        const val = modelSelect.value;
-        if (val !== 'GTC-2.5o' && val !== 'GTC-2.5V Preview') {
+        if (modelSelect.value !== 'GTC-2.5V Preview') {
             clearImageAttachment();
-        }
-        if (val !== 'GTC-2.5o') {
-            clearAudioAttachment();
-            if (isRecording) stopRecording();
         }
     });
     langToggle.addEventListener('click', toggleLanguage);
@@ -872,87 +782,20 @@
             <div class="welcome-sub" style="color:#9aa0a6;">${i18nMap[currentLang].welcomeSub}</div>
         </div>`;
         if (window.innerWidth <= 768) sidebarEl.classList.remove('open');
-        if (isRecording) stopRecording();
         clearImageAttachment();
-        clearAudioAttachment();
     }
     newChatBtn.addEventListener('click', startNewChat);
 
     // ============================================================
-    // 附件/麦克风按钮控制
+    // 附件按钮控制（仅 GTC-2.5V Preview 显示）
     // ============================================================
     function toggleAttachmentButton() {
-        const val = modelSelect.value;
-        const hasImage = (val === 'GTC-2.5o' || val === 'GTC-2.5V Preview');
-        const hasAudio = (val === 'GTC-2.5o');
-        attachmentBtn.style.display = hasImage ? 'block' : 'none';
-        micBtn.style.display = hasAudio ? 'flex' : 'none';
-        if (!hasImage) clearImageAttachment();
-        if (!hasAudio) {
-            clearAudioAttachment();
-            if (isRecording) stopRecording();
+        const isVLM = (modelSelect.value === 'GTC-2.5V Preview');
+        attachmentBtn.style.display = isVLM ? 'block' : 'none';
+        if (!isVLM) {
+            clearImageAttachment();
         }
     }
-
-    // ============================================================
-    // 录音功能
-    // ============================================================
-    async function toggleRecording() {
-        if (isRecording) {
-            stopRecording();
-        } else {
-            await startRecording();
-        }
-    }
-
-    async function startRecording() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioChunks = [];
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) audioChunks.push(e.data);
-            };
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                const reader = new FileReader();
-                reader.onload = () => {
-                    recordedAudioBase64 = reader.result;
-                    audioLabel.textContent = `Audio (${(blob.size / 1024).toFixed(0)}KB)`;
-                    audioPreviewArea.classList.add('active');
-                    updateSendButton();
-                };
-                reader.readAsDataURL(blob);
-                stream.getTracks().forEach(t => t.stop());
-            };
-            mediaRecorder.start();
-            isRecording = true;
-            micBtn.classList.add('recording');
-            micBtn.querySelector('i').className = 'fas fa-stop';
-        } catch (err) {
-            console.error('Microphone error:', err);
-            alert('Cannot access microphone. Please check permissions.');
-        }
-    }
-
-    function stopRecording() {
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            mediaRecorder.stop();
-        }
-        isRecording = false;
-        micBtn.classList.remove('recording');
-        micBtn.querySelector('i').className = 'fas fa-microphone';
-    }
-
-    function clearAudioAttachment() {
-        recordedAudioBase64 = null;
-        audioPreviewArea.classList.remove('active');
-        audioLabel.textContent = 'Audio recorded';
-        updateSendButton();
-    }
-
-    micBtn.addEventListener('click', toggleRecording);
-    removeAudioBtn.addEventListener('click', clearAudioAttachment);
 
     function showImagePreview(dataUrl, fileName) {
         selectedImageBase64 = dataUrl;
@@ -980,8 +823,7 @@
     });
 
     attachmentBtn.addEventListener('click', () => {
-        const canAttach = (modelSelect.value === 'GTC-2.5o' || modelSelect.value === 'GTC-2.5V Preview');
-        if (!canAttach) return;
+        if (modelSelect.value !== 'GTC-2.5V Preview') return;
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
@@ -1006,8 +848,6 @@
         document.body.classList.remove('drag-over');
         inputArea.classList.remove('drag-over');
         const files = e.dataTransfer.files;
-        const canAttach = (modelSelect.value === 'GTC-2.5o' || modelSelect.value === 'GTC-2.5V Preview');
-        if (!canAttach) return;
         if (files.length > 0) {
             const file = files[0];
             if (file.type.startsWith('image/')) {
@@ -1049,14 +889,13 @@
     function updateSendButton() {
         const hasText = messageInput.value.trim().length > 0;
         const hasImage = selectedImageBase64 !== null;
-        const hasAudio = recordedAudioBase64 !== null;
-        sendBtn.disabled = !(hasText || hasImage || hasAudio) || isSending;
+        sendBtn.disabled = !(hasText || hasImage) || isSending;
     }
 
     // ============================================================
     // 保存对话历史
     // ============================================================
-    async function saveConversation(input, output, image = null, audio = null) {
+    async function saveConversation(input, output, image = null) {
         if (!authToken) return;
         try {
             await fetch(`${API_BASE}/save_conversation`, {
@@ -1069,8 +908,7 @@
                     input, 
                     output, 
                     model: modelSelect.value,
-                    image: image,
-                    audio: audio
+                    image: image
                 })
             });
         } catch(e) { console.warn('Save failed:', e); }
@@ -1138,9 +976,6 @@
                     if (item.image) {
                         displayText += ' 📷';
                     }
-                    if (item.audio) {
-                        displayText += ' 🎤';
-                    }
                     textSpan.innerText = displayText.length > 36 ? displayText.slice(0,36)+'…' : displayText;
                     textSpan.addEventListener('click', () => loadConversationToUI(item));
 
@@ -1180,9 +1015,6 @@
         if (conv.image) {
             userContent += `<br><img src="${conv.image}" style="max-width:150px; max-height:150px; border-radius:8px; margin-top:6px;">`;
         }
-        if (conv.audio) {
-            userContent += `<br><span style="color:var(--accent-green);font-size:13px;"><i class="fas fa-microphone"></i> Voice input</span>`;
-        }
         userDiv.innerHTML = `<div class="message-bubble">${userContent}</div>`;
         
         const aiDiv = document.createElement('div');
@@ -1199,14 +1031,12 @@
     async function sendMessage() {
         if (isSending) return;
         const text = messageInput.value.trim();
-        if (!text && !selectedImageBase64 && !recordedAudioBase64) return;
+        if (!text && !selectedImageBase64) return;
         isSending = true;
         sendBtn.disabled = true;
 
         const imageData = selectedImageBase64;
-        const audioData = recordedAudioBase64;
         clearImageAttachment();
-        clearAudioAttachment();
 
         if (document.getElementById('welcome-area')) document.getElementById('welcome-area').remove();
 
@@ -1215,9 +1045,6 @@
         let userContent = escapeHtml(text);
         if (imageData) {
             userContent += `<br><img src="${imageData}" style="max-width:150px; max-height:150px; border-radius:8px; margin-top:6px;">`;
-        }
-        if (audioData) {
-            userContent += `<br><span style="color:var(--accent-green);font-size:13px;"><i class="fas fa-microphone"></i> Voice input</span>`;
         }
         userMsgDiv.innerHTML = `<div class="message-bubble">${userContent}</div>`;
         chatInner.appendChild(userMsgDiv);
@@ -1235,15 +1062,13 @@
 
         const modelName = modelSelect.value;
         let modelType = '';
-        if (modelName === 'GTC-2.5') modelType = 'gtc25_400m';
-        else if (modelName === 'GTC-2.5o') modelType = 'gtc25o';
-        else if (modelName === 'GTC-2.5 mini') modelType = 'gtc25';
-        else if (modelName === 'GTC-2.5V Preview') modelType = 'gtc25v';
+        if (modelName === 'GTC-2.5V Preview') modelType = 'gtc25v';
+        else if (modelName === 'GTC-2.5 Preview') modelType = 'gtc25';
         else if (modelName === 'ESFT GTC-2') modelType = 'esft';
         else if (modelName === 'GTC-2 Large (Base)') modelType = 'large';
-        else modelType = 'gtc25';
+        else modelType = 'esft';
 
-        const useStream = (modelType === 'gtc25_400m' || modelType === 'gtc25' || modelType === 'gtc25o' || modelType === 'gtc25v');
+        const useStream = (modelType === 'gtc25v' || modelType === 'gtc25');
 
         const payload = {
             text: text || '请描述这张图片',
@@ -1252,11 +1077,8 @@
             model: modelType,
             stream: useStream
         };
-        if (imageData && (modelType === 'gtc25o' || modelType === 'gtc25v')) {
+        if (imageData && modelType === 'gtc25v') {
             payload.image = imageData;
-        }
-        if (audioData && modelType === 'gtc25o') {
-            payload.audio = audioData;
         }
 
         const headers = { 'Content-Type': 'application/json' };
@@ -1323,7 +1145,7 @@
             }
 
             if (authToken) {
-                await saveConversation(text || '[Audio]', fullResponse, imageData, audioData);
+                await saveConversation(text || '[Image]', fullResponse, imageData);
                 await loadHistory();
             }
 
