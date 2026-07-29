@@ -802,6 +802,26 @@
     let audioChunks = [];
     let recordedAudioBase64 = null;
 
+    // 流式音频播放队列（AudioContext，无缝衔接）
+    let audioCtx = null;
+    let audioPlayTime = 0;
+    function playAudioChunk(base64Data) {
+        const ctx = audioCtx || (audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+        const binary = atob(base64Data);
+        const arrayBuffer = new ArrayBuffer(binary.length);
+        const view = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+        ctx.decodeAudioData(arrayBuffer, (buffer) => {
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            const now = ctx.currentTime;
+            if (audioPlayTime < now) audioPlayTime = now;
+            source.start(audioPlayTime);
+            audioPlayTime += buffer.duration;
+        }, (err) => console.warn('Audio decode error:', err));
+    }
+
     // 辅助函数
     function setLangUI() {
         const t = i18nMap[currentLang];
@@ -1338,13 +1358,7 @@
                                     chatContainer.scrollTop = chatContainer.scrollHeight;
                                 }
                                 if (data.audio) {
-                                    const audioBytes = atob(data.audio);
-                                    const arrayBuffer = new ArrayBuffer(audioBytes.length);
-                                    const view = new Uint8Array(arrayBuffer);
-                                    for (let i = 0; i < audioBytes.length; i++) view[i] = audioBytes.charCodeAt(i);
-                                    const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
-                                    const audioUrl = URL.createObjectURL(audioBlob);
-                                    new Audio(audioUrl).play();
+                                    playAudioChunk(data.audio);
                                 }
                             } catch (e) {
                                 console.warn('Parse error:', e);
