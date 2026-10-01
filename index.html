@@ -748,6 +748,17 @@
 <script>
     // ---------- 后端配置 ----------
     // GitHub Pages 或 file:// 时用 ngrok 地址，否则用同源（localhost Flask）
+    // ngrok's free tier answers browser-looking requests with an HTML warning
+    // page instead of reaching the backend. Every JSON call then fails as
+    // "offline" because the body is not JSON. Sending this header opts out; the
+    // CORS preflight already allows it.
+    function apiFetch(url, options) {
+        options = options || {};
+        options.headers = Object.assign({}, options.headers,
+                                        { 'ngrok-skip-browser-warning': 'true' });
+        return fetch(url, options);
+    }
+
     const isGitHubPages = window.location.hostname.includes('github.io');
 
     // The backend lives behind a tunnel, so its address moves. Rather than
@@ -1171,7 +1182,7 @@
         await API_READY;
         if (!authToken) return;
         try {
-            await fetch(`${API_BASE}/save_conversation`, {
+            await apiFetch(`${API_BASE}/save_conversation`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1195,7 +1206,7 @@
         await API_READY;
         if (!authToken) return false;
         try {
-            const res = await fetch(`${API_BASE}/delete_conversation`, {
+            const res = await apiFetch(`${API_BASE}/delete_conversation`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1217,7 +1228,7 @@
         await API_READY;
         if (!authToken) return;
         try {
-            const res = await fetch(`${API_BASE}/history`, { 
+            const res = await apiFetch(`${API_BASE}/history`, { 
                 headers: { 'Authorization': `Bearer ${authToken}` } 
             });
             if (handleAuthFailure(res)) return;
@@ -1381,7 +1392,7 @@
         let fullResponse = '';
 
         try {
-            const response = await fetch(`${API_BASE}/generate`, {
+            const response = await apiFetch(`${API_BASE}/generate`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(payload)
@@ -1505,7 +1516,7 @@
         const notice = document.getElementById('login-notice');
         if (notice) { notice.style.display = 'none'; notice.innerText = ''; }
         try {
-            const res = await fetch(`${API_BASE}/login`, { 
+            const res = await apiFetch(`${API_BASE}/login`, { 
                 method:'POST', 
                 headers:{'Content-Type':'application/json'}, 
                 body:JSON.stringify({email, password}) 
@@ -1539,7 +1550,7 @@
         const password = document.getElementById('reg-password').value;
         const notice = document.getElementById('login-notice');
         try {
-            const res = await fetch(`${API_BASE}/register`, { 
+            const res = await apiFetch(`${API_BASE}/register`, { 
                 method:'POST', 
                 headers:{'Content-Type':'application/json'}, 
                 body:JSON.stringify({name, email, password}) 
@@ -1607,7 +1618,7 @@
         await API_READY;
         if (!authToken) return;
         try {
-            const res = await fetch(`${API_BASE}/entitlements`, {
+            const res = await apiFetch(`${API_BASE}/entitlements`, {
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
             if (handleAuthFailure(res)) return;
@@ -1679,7 +1690,7 @@
         }
         btn.disabled = true;
         try {
-            const res = await fetch(`${API_BASE}/redeem`, {
+            const res = await apiFetch(`${API_BASE}/redeem`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                 body: JSON.stringify({ code })
