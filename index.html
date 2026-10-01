@@ -742,8 +742,8 @@
 
 <!-- 登录/注册模态框 -->
 
-<div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><p id="login-notice" class="redeem-msg error" style="display:none; text-align:center;"></p><input type="text" id="login-username" placeholder="Username" class="form-input"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
-<div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Username" class="form-input"><input type="email" id="reg-email" placeholder="Email" class="form-input"><input type="password" id="reg-password" placeholder="Password" class="form-input"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div></div>
+<div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><p id="login-notice" class="redeem-msg error" style="display:none; text-align:center;"></p><input type="email" id="login-username" placeholder="Email" class="form-input" autocomplete="email"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
+<div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Display name (optional)" class="form-input" autocomplete="nickname"><input type="email" id="reg-email" placeholder="Email" class="form-input" autocomplete="email" required><input type="password" id="reg-password" placeholder="Password (at least 8 characters)" class="form-input" autocomplete="new-password"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div></div>
 <div id="redeem-modal" class="modal"><div class="modal-content"><h3 id="modal-title-redeem">Redeem a code</h3><p class="redeem-hint" id="redeem-hint">Enter the code you received. Codes are not case sensitive.</p><input type="text" id="redeem-code" placeholder="TAI-XXXX-XXXX-XXXX" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="redeem-msg" class="redeem-msg"></div><button id="do-redeem" class="form-submit">Redeem</button><div style="text-align:center; margin-top:12px;"><a id="close-redeem" class="form-link">Close</a></div></div></div>
 <script>
     // ---------- 后端配置 ----------
@@ -1497,20 +1497,29 @@
         if(e.target === loginModal || e.target === registerModal) closeModals(); 
     });
 
+    // Email identifies the account: usernames collide, emails do not.
     async function doLogin() {
         await API_READY;
-        const username = document.getElementById('login-username').value;
+        const email = document.getElementById('login-username').value.trim();
         const password = document.getElementById('login-password').value;
+        const notice = document.getElementById('login-notice');
+        if (notice) { notice.style.display = 'none'; notice.innerText = ''; }
         try {
             const res = await fetch(`${API_BASE}/login`, { 
                 method:'POST', 
                 headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({username,password}) 
+                body:JSON.stringify({email, password}) 
             });
-            if(!res.ok) throw new Error();
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if(!res.ok) {
+                if (notice) {
+                    notice.innerText = data.message || data.error || 'Login failed';
+                    notice.style.display = 'block';
+                }
+                return;
+            }
             authToken = data.token; 
-            currentUser = { username: data.username, role: data.role };
+            currentUser = { username: data.username, role: data.role, email: data.email };
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('userData', JSON.stringify(currentUser));
             const notice = document.getElementById('login-notice');
@@ -1518,24 +1527,38 @@
             updateUIAfterLogin();
             closeModals();
             await loadHistory();
-        } catch(e) { alert('Login failed'); }
+        } catch(e) {
+            if (notice) { notice.innerText = 'Could not reach the server.'; notice.style.display = 'block'; }
+        }
     }
 
     async function doRegister() {
         await API_READY;
-        const username = document.getElementById('reg-username').value;
-        const email = document.getElementById('reg-email').value;
+        const name = document.getElementById('reg-username').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-password').value;
+        const notice = document.getElementById('login-notice');
         try {
             const res = await fetch(`${API_BASE}/register`, { 
                 method:'POST', 
                 headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({username,email,password}) 
+                body:JSON.stringify({name, email, password}) 
             });
-            if(!res.ok) throw new Error();
-            alert('Registration success! Please log in.');
-            showLogin();
-        } catch(e) { alert('Register failed'); }
+            const data = await res.json().catch(() => ({}));
+            if(!res.ok) {
+                alert(data.message || data.error || 'Registration failed');
+                return;
+            }
+            // Sign the new account straight in rather than making them retype it.
+            authToken = data.token;
+            currentUser = { username: data.username, role: data.role, email: data.email };
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('userData', JSON.stringify(currentUser));
+            if (notice) { notice.style.display = 'none'; notice.innerText = ''; }
+            updateUIAfterLogin();
+            closeModals();
+            await loadHistory();
+        } catch(e) { alert('Could not reach the server.'); }
     }
 
     document.getElementById('do-login')?.addEventListener('click', doLogin);
@@ -1588,12 +1611,18 @@
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
             if (handleAuthFailure(res)) return;
-            if (!res.ok) return;
+            if (!res.ok) {
+                // Never show "Free Account" as if it were confirmed. If we could
+                // not read the tier, say so - a wrong badge is worse than none.
+                userRoleSpan.innerText = 'Account unavailable (HTTP ' + res.status + ')';
+                userRoleSpan.classList.remove('is-pro');
+                return;
+            }
             const data = await res.json();
             applyEntitlements(data.entitlements);
         } catch (e) {
-            // Server or platform unreachable: keep whatever we last showed
-            // rather than blanking the badge.
+            userRoleSpan.innerText = 'Account unavailable (offline)';
+            userRoleSpan.classList.remove('is-pro');
         }
     }
 
