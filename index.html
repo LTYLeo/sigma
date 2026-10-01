@@ -167,6 +167,12 @@
             font-weight: 600;
         }
 
+        .user-role.is-admin {
+            color: #7bd1ff;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
         .redeem-msg {
             min-height: 18px;
             margin: 8px 0 4px;
@@ -735,10 +741,10 @@
 </div>
 
 <!-- 登录/注册模态框 -->
-<div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><input type="text" id="login-username" placeholder="Username" class="form-input"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
-<div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Username" class="form-input"><input type="email" id="reg-email" placeholder="Email" class="form-input"><input type="password" id="reg-password" placeholder="Password" class="form-input"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div>
-<div id="redeem-modal" class="modal"><div class="modal-content"><h3 id="modal-title-redeem">Redeem a code</h3><p class="redeem-hint" id="redeem-hint">Enter the code you received. Codes are not case sensitive.</p><input type="text" id="redeem-code" placeholder="TAI-XXXX-XXXX-XXXX" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="redeem-msg" class="redeem-msg"></div><button id="do-redeem" class="form-submit">Redeem</button><div style="text-align:center; margin-top:12px;"><a id="close-redeem" class="form-link">Close</a></div></div></div></div>
 
+<div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><input type="text" id="login-username" placeholder="Username" class="form-input"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
+<div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Username" class="form-input"><input type="email" id="reg-email" placeholder="Email" class="form-input"><input type="password" id="reg-password" placeholder="Password" class="form-input"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div></div>
+<div id="redeem-modal" class="modal"><div class="modal-content"><h3 id="modal-title-redeem">Redeem a code</h3><p class="redeem-hint" id="redeem-hint">Enter the code you received. Codes are not case sensitive.</p><input type="text" id="redeem-code" placeholder="TAI-XXXX-XXXX-XXXX" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="redeem-msg" class="redeem-msg"></div><button id="do-redeem" class="form-submit">Redeem</button><div style="text-align:center; margin-top:12px;"><a id="close-redeem" class="form-link">Close</a></div></div></div>
 <script>
     // ---------- 后端配置 ----------
     // GitHub Pages 或 file:// 时用 ngrok 地址，否则用同源（localhost Flask）
@@ -749,7 +755,7 @@
     // the deployed front-end reads it from `endpoint.json` next to this page.
     // Same origin, so no CORS, and relocating the backend is a one-line change.
     let API_BASE = (window.location.origin === 'file://' || isGitHubPages)
-        ? 'https://9733-2409-8a20-833-b290-854a-5b2b-beff-1a83.ngrok-free.app'
+        ? 'https://synchronistical-dede-coeducationally.ngrok-free.dev'
         : window.location.origin;
 
     // Every request awaits this, so a call cannot race the lookup and go to a
@@ -778,6 +784,17 @@
             noHistory: "No conversation history yet", 
             logout: "Log out", 
             loginBtn: "Log in / Sign up",
+            redeemBtn: "Redeem code",
+            redeemTitle: "Redeem a code",
+            redeemHint: "Enter the code you received. Codes are not case sensitive.",
+            redeemSubmit: "Redeem",
+            redeemEmpty: "Please enter a code.",
+            redeemFailed: "Redeem failed. Check the code and try again.",
+            redeemOffline: "Could not reach the server.",
+            proAccount: "Pro Account",
+            freeAccount: "Free Account",
+            adminAccount: "Admin Account",
+            noPlatformAccount: "Register on the Developer Platform with the same email first, then come back to redeem.",
             welcomeTitle: "How can I assist you today?", 
             welcomeSub: "Ask me anything, and I'll do my best to provide helpful, accurate information.",
             disclaimer: "Sigma can make mistakes. Consider checking important information.", 
@@ -1562,9 +1579,13 @@
     function applyEntitlements(ent) {
         if (!ent || !userRoleSpan) return;
         currentEntitlements = ent;
+        const isAdmin = ent.plan === 'admin';
         const isPro = ent.plan === 'pro';
-        userRoleSpan.classList.toggle('is-pro', isPro);
-        if (isPro) {
+        userRoleSpan.classList.toggle('is-pro', isPro || isAdmin);
+        userRoleSpan.classList.toggle('is-admin', isAdmin);
+        if (isAdmin) {
+            userRoleSpan.innerText = 'Admin Account';
+        } else if (isPro) {
             userRoleSpan.innerText = ent.days_left != null
                 ? `Pro Account · ${ent.days_left}d left`
                 : 'Pro Account';

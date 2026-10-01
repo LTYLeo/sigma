@@ -1,6 +1,7 @@
 {
   "object": "endpoint",
-  "api_base": "https://9733-2409-8a20-833-b290-854a-5b2b-beff-1a83.ngrok-free.app",
-  "note": "Sigma backend behind the tunnel. Update with scripts/update-endpoint.sh when the tunnel restarts.",
-  "updated_at": "2026-10-01T06:17:53Z"
+  "api_base": "https://synchronistical-dede-coeducationally.ngrok-free.dev",
+  "reserved": true,
+  "note": "Reserved ngrok domain - this address is stable, so endpoint.json rarely needs changing.",
+  "updated_at": "2026-10-01T08:54:50Z"
 }
