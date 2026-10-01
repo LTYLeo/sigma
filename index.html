@@ -162,6 +162,28 @@
             font-weight: 600;
             font-size: 14px;
         }
+        .user-role.is-pro {
+            color: #ffd479;
+            font-weight: 600;
+        }
+
+        .redeem-msg {
+            min-height: 18px;
+            margin: 8px 0 4px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .redeem-msg.error { color: #ff7b72; }
+        .redeem-msg.success { color: #56d364; }
+
+        .redeem-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin: 0 0 10px;
+            line-height: 1.5;
+        }
+
         .user-role {
             font-size: 12px;
             color: var(--text-secondary);
@@ -648,6 +670,7 @@
                     <div class="user-role" id="user-role-display">Free Account</div>
                 </div>
             </div>
+            <button class="user-action-btn" id="redeem-btn"><i class="fas fa-ticket-alt"></i> <span data-key="redeemBtn">Redeem code</span></button>
             <button class="user-action-btn" id="logout-btn"><i class="fas fa-sign-out-alt"></i> <span data-key="logout">Log out</span></button>
         </div>
         <button class="user-action-btn" id="sidebar-login-btn"><i class="fas fa-sign-in-alt"></i> <span data-key="loginBtn">Log in / Sign up</span></button>
@@ -713,15 +736,33 @@
 
 <!-- 登录/注册模态框 -->
 <div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><input type="text" id="login-username" placeholder="Username" class="form-input"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
-<div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Username" class="form-input"><input type="email" id="reg-email" placeholder="Email" class="form-input"><input type="password" id="reg-password" placeholder="Password" class="form-input"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div></div>
+<div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Username" class="form-input"><input type="email" id="reg-email" placeholder="Email" class="form-input"><input type="password" id="reg-password" placeholder="Password" class="form-input"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div>
+<div id="redeem-modal" class="modal"><div class="modal-content"><h3 id="modal-title-redeem">Redeem a code</h3><p class="redeem-hint" id="redeem-hint">Enter the code you received. Codes are not case sensitive.</p><input type="text" id="redeem-code" placeholder="TAI-XXXX-XXXX-XXXX" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="redeem-msg" class="redeem-msg"></div><button id="do-redeem" class="form-submit">Redeem</button><div style="text-align:center; margin-top:12px;"><a id="close-redeem" class="form-link">Close</a></div></div></div></div>
 
 <script>
     // ---------- 后端配置 ----------
     // GitHub Pages 或 file:// 时用 ngrok 地址，否则用同源（localhost Flask）
     const isGitHubPages = window.location.hostname.includes('github.io');
-    const API_BASE = (window.location.origin === 'file://' || isGitHubPages)
-        ? 'https://reactor-sandal-unseen.ngrok-free.dev' 
+
+    // The backend lives behind a tunnel, so its address moves. Rather than
+    // hard-coding one URL (which silently rots the moment the tunnel restarts),
+    // the deployed front-end reads it from `endpoint.json` next to this page.
+    // Same origin, so no CORS, and relocating the backend is a one-line change.
+    let API_BASE = (window.location.origin === 'file://' || isGitHubPages)
+        ? 'https://9733-2409-8a20-833-b290-854a-5b2b-beff-1a83.ngrok-free.app'
         : window.location.origin;
+
+    // Every request awaits this, so a call cannot race the lookup and go to a
+    // stale host. A failure just leaves the built-in fallback in place.
+    const API_READY = (async () => {
+        if (!isGitHubPages) return;
+        try {
+            const res = await fetch('endpoint.json?t=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) return;
+            const cfg = await res.json();
+            if (cfg && cfg.api_base) API_BASE = String(cfg.api_base).replace(/\/+$/, '');
+        } catch (e) { /* keep the fallback */ }
+    })();
     let authToken = localStorage.getItem('authToken');
     let currentUser = null;
     let isSending = false;
@@ -1109,6 +1150,7 @@
     // 保存对话历史
     // ============================================================
     async function saveConversation(input, output, image = null, audio = null) {
+        await API_READY;
         if (!authToken) return;
         try {
             await fetch(`${API_BASE}/save_conversation`, {
@@ -1132,6 +1174,7 @@
     // 删除对话历史
     // ============================================================
     async function deleteConversation(timestamp) {
+        await API_READY;
         if (!authToken) return false;
         try {
             const res = await fetch(`${API_BASE}/delete_conversation`, {
@@ -1153,6 +1196,7 @@
     // 加载历史记录（去重 + 删除按钮）
     // ============================================================
     async function loadHistory() {
+        await API_READY;
         if (!authToken) return;
         try {
             const res = await fetch(`${API_BASE}/history`, { 
@@ -1249,6 +1293,7 @@
     // 核心发送消息
     // ============================================================
     async function sendMessage() {
+        await API_READY;
         if (isSending) return;
         const text = messageInput.value.trim();
         if (!text && !selectedImageBase64 && !recordedAudioBase64) return;
@@ -1420,7 +1465,12 @@
     
     function showLogin() { loginModal.style.display = 'flex'; registerModal.style.display = 'none'; }
     function showRegister() { registerModal.style.display = 'flex'; loginModal.style.display = 'none'; }
-    function closeModals() { loginModal.style.display = 'none'; registerModal.style.display = 'none'; }
+    function closeModals() {
+        loginModal.style.display = 'none';
+        registerModal.style.display = 'none';
+        const rm = document.getElementById('redeem-modal');
+        if (rm) rm.style.display = 'none';
+    }
     
     document.getElementById('switch-to-register')?.addEventListener('click', showRegister);
     document.getElementById('switch-to-login')?.addEventListener('click', showLogin);
@@ -1429,6 +1479,7 @@
     });
 
     async function doLogin() {
+        await API_READY;
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
         try {
@@ -1450,6 +1501,7 @@
     }
 
     async function doRegister() {
+        await API_READY;
         const username = document.getElementById('reg-username').value;
         const email = document.getElementById('reg-email').value;
         const password = document.getElementById('reg-password').value;
@@ -1481,9 +1533,113 @@
         sidebarLoginBtn.style.display = 'none';
         userInfoDiv.style.display = 'block';
         usernameSpan.innerText = currentUser.username;
-        userRoleSpan.innerText = currentUser.role === 'pro' ? 'Pro Account' : 'Free Account';
         userAvatarSpan.innerText = currentUser.username.charAt(0).toUpperCase();
+        // The plan is owned by the Developer Platform, so ask it rather than
+        // trusting the role embedded in a token that may predate a purchase.
+        userRoleSpan.innerText = 'Free Account';
+        userRoleSpan.classList.remove('is-pro');
+        refreshEntitlements();
     }
+
+    let currentEntitlements = null;
+
+    async function refreshEntitlements() {
+        await API_READY;
+        if (!authToken) return;
+        try {
+            const res = await fetch(`${API_BASE}/entitlements`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            applyEntitlements(data.entitlements);
+        } catch (e) {
+            // Server or platform unreachable: keep whatever we last showed
+            // rather than blanking the badge.
+        }
+    }
+
+    function applyEntitlements(ent) {
+        if (!ent || !userRoleSpan) return;
+        currentEntitlements = ent;
+        const isPro = ent.plan === 'pro';
+        userRoleSpan.classList.toggle('is-pro', isPro);
+        if (isPro) {
+            userRoleSpan.innerText = ent.days_left != null
+                ? `Pro Account · ${ent.days_left}d left`
+                : 'Pro Account';
+        } else if (ent.daily_limit) {
+            userRoleSpan.innerText = `Free Account · ${ent.daily_used || 0}/${ent.daily_limit} today`;
+        } else {
+            userRoleSpan.innerText = 'Free Account';
+        }
+    }
+
+    function openRedeem() {
+        const rm = document.getElementById('redeem-modal');
+        const hint = document.getElementById('redeem-hint');
+        const msg = document.getElementById('redeem-msg');
+        if (!rm) return;
+        msg.innerText = '';
+        msg.className = 'redeem-msg';
+        // If the platform has no account for this email, redeeming cannot work:
+        // say so before the user types anything.
+        if (currentEntitlements && currentEntitlements.source === 'local') {
+            hint.innerText = 'Register on the Developer Platform with the same email first, then come back to redeem.';
+            hint.style.color = '#ffd479';
+        } else {
+            hint.innerText = 'Enter the code you received. Codes are not case sensitive.';
+            hint.style.color = '';
+        }
+        rm.style.display = 'flex';
+    }
+
+    async function doRedeem() {
+        await API_READY;
+        const input = document.getElementById('redeem-code');
+        const msg = document.getElementById('redeem-msg');
+        const btn = document.getElementById('do-redeem');
+        const code = (input.value || '').trim();
+        msg.className = 'redeem-msg';
+        if (!code) {
+            msg.innerText = 'Please enter a code.';
+            msg.classList.add('error');
+            return;
+        }
+        btn.disabled = true;
+        try {
+            const res = await fetch(`${API_BASE}/redeem`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                body: JSON.stringify({ code })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                msg.innerText = data.message || 'Redeem failed. Check the code and try again.';
+                msg.classList.add('error');
+                return;
+            }
+            const g = data.grants || {};
+            msg.innerText = g.kind === 'sigma_pro'
+                ? `Redeemed: Pro for ${g.months} month(s).`
+                : `Redeemed: ¥${g.amount_cny} of API credit.`;
+            msg.classList.add('success');
+            input.value = '';
+            applyEntitlements(data.entitlements);
+        } catch (e) {
+            msg.innerText = 'Could not reach the server.';
+            msg.classList.add('error');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    document.getElementById('redeem-btn')?.addEventListener('click', openRedeem);
+    document.getElementById('do-redeem')?.addEventListener('click', doRedeem);
+    document.getElementById('close-redeem')?.addEventListener('click', closeModals);
+    document.getElementById('redeem-code')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') doRedeem();
+    });
 
     function updateUIAfterLogout() {
         sidebarLoginBtn.style.display = 'block';
@@ -1494,7 +1650,8 @@
     logoutBtn.addEventListener('click', logout);
     sidebarLoginBtn.addEventListener('click', showLogin);
 
-    function checkLoginStatus() {
+    async function checkLoginStatus() {
+        await API_READY;
         const token = localStorage.getItem('authToken');
         const user = localStorage.getItem('userData');
         if(token && user) { 
