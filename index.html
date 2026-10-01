@@ -742,7 +742,7 @@
 
 <!-- 登录/注册模态框 -->
 
-<div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><input type="text" id="login-username" placeholder="Username" class="form-input"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
+<div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><p id="login-notice" class="redeem-msg error" style="display:none; text-align:center;"></p><input type="text" id="login-username" placeholder="Username" class="form-input"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
 <div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Username" class="form-input"><input type="email" id="reg-email" placeholder="Email" class="form-input"><input type="password" id="reg-password" placeholder="Password" class="form-input"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div></div>
 <div id="redeem-modal" class="modal"><div class="modal-content"><h3 id="modal-title-redeem">Redeem a code</h3><p class="redeem-hint" id="redeem-hint">Enter the code you received. Codes are not case sensitive.</p><input type="text" id="redeem-code" placeholder="TAI-XXXX-XXXX-XXXX" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="redeem-msg" class="redeem-msg"></div><button id="do-redeem" class="form-submit">Redeem</button><div style="text-align:center; margin-top:12px;"><a id="close-redeem" class="form-link">Close</a></div></div></div>
 <script>
@@ -764,6 +764,7 @@
         if (!isGitHubPages) return;
         try {
             const res = await fetch('endpoint.json?t=' + Date.now(), { cache: 'no-store' });
+            if (handleAuthFailure(res)) return;
             if (!res.ok) return;
             const cfg = await res.json();
             if (cfg && cfg.api_base) API_BASE = String(cfg.api_base).replace(/\/+$/, '');
@@ -1219,6 +1220,7 @@
             const res = await fetch(`${API_BASE}/history`, { 
                 headers: { 'Authorization': `Bearer ${authToken}` } 
             });
+            if (handleAuthFailure(res)) return;
             if (!res.ok) throw new Error();
             const data = await res.json();
             if (data.status === 'success' && data.history) {
@@ -1511,6 +1513,8 @@
             currentUser = { username: data.username, role: data.role };
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('userData', JSON.stringify(currentUser));
+            const notice = document.getElementById('login-notice');
+            if (notice) { notice.style.display = 'none'; notice.innerText = ''; }
             updateUIAfterLogin();
             closeModals();
             await loadHistory();
@@ -1560,6 +1564,22 @@
 
     let currentEntitlements = null;
 
+    // A dead token (expired, or the server's signing key was rotated) used to
+    // leave the UI showing you as signed in while every request failed with 401
+    // and nothing said why. Treat 401 as "you are not signed in": drop the
+    // stale session and open the login dialog with an explanation.
+    function handleAuthFailure(res) {
+        if (res.status !== 401) return false;
+        logout();
+        const notice = document.getElementById('login-notice');
+        if (notice) {
+            notice.innerText = 'Your session expired. Please log in again.';
+            notice.style.display = 'block';
+        }
+        showLogin();
+        return true;
+    }
+
     async function refreshEntitlements() {
         await API_READY;
         if (!authToken) return;
@@ -1567,6 +1587,7 @@
             const res = await fetch(`${API_BASE}/entitlements`, {
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
+            if (handleAuthFailure(res)) return;
             if (!res.ok) return;
             const data = await res.json();
             applyEntitlements(data.entitlements);
@@ -1635,6 +1656,7 @@
                 body: JSON.stringify({ code })
             });
             const data = await res.json().catch(() => ({}));
+            if (handleAuthFailure(res)) return;
             if (!res.ok) {
                 msg.innerText = data.message || 'Redeem failed. Check the code and try again.';
                 msg.classList.add('error');
