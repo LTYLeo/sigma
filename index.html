@@ -258,29 +258,42 @@
            Folded away by default and capped in height, so a long chain of
            thought is something you can open rather than something you scroll
            past on the way to the answer. */
-        .reasoning {
-            margin: 0 0 12px;
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            background: rgba(255,255,255,.03);
-            overflow: hidden;
-        }
+        .reasoning { margin: 0 0 10px; border: none; background: none; }
         .reasoning > summary {
-            display: flex; align-items: center; gap: 9px;
-            padding: 11px 14px; cursor: pointer; list-style: none;
-            font-size: 13px; color: var(--text-secondary);
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 4px; cursor: pointer; list-style: none;
+            font-size: 14px; color: var(--text-secondary);
             user-select: none;
         }
         .reasoning > summary::-webkit-details-marker { display: none; }
-        .reasoning > summary:hover { background: rgba(255,255,255,.04); color: var(--text); }
+        .reasoning > summary:hover { color: var(--text); }
+        /* An orbiting-atom mark, drawn rather than pulled from an icon font so
+           it reads the same everywhere. */
+        .reasoning-atom {
+            width: 15px; height: 15px; flex: none; border-radius: 50%;
+            border: 1.5px solid #7aa7f0; position: relative;
+        }
+        .reasoning-atom::after {
+            content: ''; position: absolute; inset: 3px;
+            border-radius: 50%; background: #7aa7f0; opacity: .85;
+        }
+        .reasoning.done .reasoning-atom { border-color: #6b8fd4; }
+        .reasoning:not(.done) .reasoning-atom {
+            animation: atom-spin 1.1s linear infinite;
+            border-style: dashed;
+        }
+        @keyframes atom-spin { to { transform: rotate(360deg); } }
         .reasoning-label { flex: 1; }
-        .reasoning-chevron { font-size: 11px; transition: transform .18s; }
-        .reasoning[open] .reasoning-chevron { transform: rotate(180deg); }
+        .reasoning-chevron { font-size: 11px; opacity: .7; transition: transform .18s; }
+        .reasoning[open] .reasoning-chevron { transform: rotate(90deg); }
         .reasoning-body {
-            max-height: 300px; overflow-y: auto;
-            padding: 4px 16px 14px;
-            border-top: 1px solid var(--card-border);
-            font-size: 13px; color: var(--text-secondary); line-height: 1.65;
+            max-height: 260px; overflow-y: auto;
+            margin: 2px 0 12px 25px; padding-left: 14px;
+            border-left: 2px solid var(--card-border);
+            font-size: 13.5px; color: var(--text-secondary); line-height: 1.7;
+            /* Scrollable on its own, so a long chain of thought never pushes the
+               answer off the screen. */
+            overscroll-behavior: contain;
         }
         .reasoning-body::-webkit-scrollbar { width: 7px; }
         .reasoning-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 999px; }
@@ -1088,6 +1101,10 @@
     // answer, so it is a deliberate choice rather than a default.
     let thinkingEnabled = false;
 
+    // When the current reply's reasoning began, so the folded label can say how
+    // long it took rather than just "Reasoning".
+    let thinkingStartedAt = 0;
+
     // Display name -> the identifier the backend knows. Defined once: the send
     // path and the plan filter both need it, and two copies would drift.
     const MODEL_IDS = {
@@ -1123,6 +1140,9 @@
             daysShort: "d",
             thinkingOn: "Reasoning",
             reasoningLabel: "Reasoning",
+            reasoningFor: "Thought for",
+            reasoningSeconds: "s",
+            reasoningThinking: "Thinking…",
             feat20Msgs: "20 messages a day",
             feat300Msgs: "300 messages a day",
             featNoCap: "No daily message limit",
@@ -1217,6 +1237,9 @@
             Reference: "订单号",
             thinkingOn: "推理过程",
             reasoningLabel: "思考过程",
+            reasoningFor: "思考了",
+            reasoningSeconds: "秒",
+            reasoningThinking: "正在思考…",
             feat20Msgs: "每天 20 条消息",
             feat300Msgs: "每天 300 条消息",
             featNoCap: "每日消息不限量",
@@ -1899,7 +1922,10 @@
 
         const payload = {
             text: text || (imageData ? '请描述这张图片' : ''),
-            max_len: 512,
+            // Was 512, which truncated any real answer - and truncated it at the
+            // reasoning stage when the model was thinking. The backend allows
+            // far more; reasoning gets its own budget on top of this.
+            max_len: 8192,
             temperature: 0.7,
             model: modelType,
             stream: useStream
@@ -1931,6 +1957,7 @@
         if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
         let fullResponse = '';
+        thinkingStartedAt = Date.now();
 
         try {
             const response = await apiFetch(`${API_BASE}/generate`, {
@@ -1970,7 +1997,7 @@
                                 }
                                 if (data.chunk) {
                                     fullResponse += data.chunk;
-                                    renderMarkdownThrottled(bubbleDiv, fullResponse, false);
+                                    renderMarkdownThrottled(bubbleDiv, fullResponse, false, thinkingStartedAt);
                                 }
                                 if (data.audio) {
                                     playAudioChunk(data.audio);
@@ -1985,7 +2012,7 @@
                 if (!fullResponse) {
                     fullResponse = 'No response from model.';
                 }
-                renderMarkdownThrottled(bubbleDiv, fullResponse, true);
+                renderMarkdownThrottled(bubbleDiv, fullResponse, true, thinkingStartedAt);
             } else {
                 const data = await response.json();
                 fullResponse = data.generated_text || 'No response from model.';
@@ -2072,33 +2099,70 @@
         };
     }
 
-    function renderMarkdownThrottled(el, text, force) {
+    // The shell is built once per message and only its contents are updated.
+    // Rebuilding it on every chunk reset the <details> open state, which is why
+    // the panel could not be collapsed while the model was still thinking.
+    function ensureReasoningShell(el) {
+        if (el.querySelector('.reasoning')) return;
+        el.innerHTML =
+            '<details class="reasoning">' +
+              '<summary>' +
+                '<span class="reasoning-atom"></span>' +
+                '<span class="reasoning-label"></span>' +
+                '<i class="fas fa-chevron-right reasoning-chevron"></i>' +
+              '</summary>' +
+              '<div class="reasoning-body"></div>' +
+            '</details>' +
+            '<div class="answer-body"></div>';
+    }
+
+    function renderMarkdownThrottled(el, text, force, startedAt) {
         const now = Date.now();
-        // While more text is still arriving the disclosure must stay open, or
-        // each frame would snap it shut again.
-        const streaming = !force;
-        if (streaming && now - _lastRender < 80) return;
+        if (!force && now - _lastRender < 80) return;
         _lastRender = now;
 
+        const L = i18nMap[currentLang] || {};
         const parts = splitReasoning(text);
-        if (parts.reasoning) {
-            const openAttr = streaming ? ' open' : '';
-            el.innerHTML =
-                '<details class="reasoning"' + openAttr + '>' +
-                  '<summary><i class="fas fa-brain"></i> ' +
-                    '<span class="reasoning-label">' +
-                      ((i18nMap[currentLang] || {}).reasoningLabel || 'Reasoning') +
-                    '</span>' +
-                    '<i class="fas fa-chevron-down reasoning-chevron"></i>' +
-                  '</summary>' +
-                  '<div class="reasoning-body">' + renderMarkdown(parts.reasoning) + '</div>' +
-                '</details>' +
-                (parts.answer ? '<div class="answer-body">' + renderMarkdown(parts.answer) + '</div>' : '');
-        } else {
+
+        if (!parts.reasoning) {
+            // No reasoning in this reply: plain answer, nothing folded away.
             el.innerHTML = renderMarkdown(parts.answer);
+            const c0 = document.getElementById('chat-container');
+            if (c0) c0.scrollTop = c0.scrollHeight;
+            return;
         }
+
+        ensureReasoningShell(el);
+        const label = el.querySelector('.reasoning-label');
+        const body = el.querySelector('.reasoning-body');
+        const answer = el.querySelector('.answer-body');
+
+        // "Thought for 4 seconds" once the answer has begun; a live label while
+        // it is still thinking. The elapsed time is the honest signal that
+        // something is happening without forcing the panel open.
+        if (parts.answer) {
+            const secs = startedAt ? Math.max(1, Math.round((Date.now() - startedAt) / 1000)) : null;
+            label.textContent = secs
+                ? (L.reasoningFor || 'Thought for') + ' ' + secs + ' ' + (L.reasoningSeconds || 's')
+                : (L.reasoningLabel || 'Reasoning');
+            el.querySelector('.reasoning').classList.add('done');
+        } else {
+            label.textContent = L.reasoningThinking || 'Thinking…';
+            el.querySelector('.reasoning').classList.remove('done');
+        }
+
+        body.innerHTML = renderMarkdown(parts.reasoning);
+        // Never overwrite the answer with an empty string: that would clear the
+        // text already streamed while the next chunk is parsed.
+        if (parts.answer) answer.innerHTML = renderMarkdown(parts.answer);
+
+        // Follow the stream only while the reasoning panel is closed - if the
+        // reader has opened it to read, scrolling them away is hostile.
         const container = document.getElementById('chat-container');
-        if (container) container.scrollTop = container.scrollHeight;
+        const det = el.querySelector('.reasoning');
+        if (container && !(det && det.open && !parts.answer)) {
+            container.scrollTop = container.scrollHeight;
+        }
     }
 
     function escapeHtml(str) { 
