@@ -377,6 +377,30 @@
         .input-area.locked { opacity: .55; }
         .input-area.locked .message-box { cursor: not-allowed; }
 
+        /* Payment is arranged by hand, so the contact details are the point of
+           this panel and are styled to be read and clicked. */
+        .contact-card {
+            margin: 12px 0;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .contact-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 15px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .contact-row:last-child { border-bottom: none; }
+        .contact-label { flex: 0 0 68px; font-size: 13px; color: var(--text-secondary); }
+        .contact-value {
+            flex: 1; cursor: pointer; user-select: all;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 14px;
+        }
+        .contact-value:hover { color: #7bd1ff; }
+        .pay-head { margin-top: 6px; font-size: 14px; }
+        .pay-note { margin-top: 10px; font-size: 12.5px; color: var(--text-secondary); }
+
         .plan-close {
             position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
             border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1;
@@ -1207,6 +1231,13 @@
             stopped: "Stopped.",
             stoppedEmpty: "Stopped before any output.",
             jumpLatest: "Jump to latest",
+            contactToPay: "Contact us to pay, and we will send you a redeem code.",
+            tellPlan: "Tell us which plan and the email on this account.",
+            orRedeem: "Already have a code? Use Redeem code in the sidebar.",
+            wechat: "WeChat",
+            qq: "QQ",
+            email: "Email",
+            copied: "Copied",
             renamePrompt: "Rename this conversation",
             renameFailed: "Rename failed",
             loginRequired: "Please log in to use Sigma. Your account also carries your plan and usage.",
@@ -1312,6 +1343,13 @@
             stopped: "已停止。",
             stoppedEmpty: "在产生输出前已停止。",
             jumpLatest: "跳到最新",
+            contactToPay: "联系我们付款，我们会发给你一个兑换码。",
+            tellPlan: "请告诉我们要哪个套餐，以及本账户的邮箱。",
+            orRedeem: "已有兑换码？用侧栏的「兑换码」。",
+            wechat: "微信",
+            qq: "QQ",
+            email: "邮箱",
+            copied: "已复制",
             renamePrompt: "重命名这段对话",
             renameFailed: "重命名失败",
             loginRequired: "请先登录再使用 Sigma。你的套餐和用量都绑定在账户上。",
@@ -2845,66 +2883,54 @@
         });
     }
 
-    async function startUpgrade(plan, col) {
+    // No order is created here. Payment is arranged by hand - the buyer contacts
+    // us, we confirm the money arrived, and we send back a redeem code - so this
+    // only has to put the contact details where the plan they want is visible.
+    function startUpgrade(plan, col) {
         const msg = document.getElementById('plan-msg');
         const pay = document.getElementById('plan-pay');
         const L = i18nMap[currentLang] || {};
         msg.innerText = ''; msg.className = 'redeem-msg';
-        col.classList.add('busy');
+        Array.prototype.forEach.call(
+            document.querySelectorAll('.plan-col'), function (c) { c.classList.remove('busy'); });
 
-        try {
-            const res = await apiFetch(`${API_BASE}/upgrade`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                },
-                body: JSON.stringify({ plan: plan.id })
+        pay.style.display = '';
+        pay.innerHTML =
+            '<div class="pay-head">' +
+              (L.contactToPay || 'Contact us to pay, and we will send you a redeem code.') +
+            '</div>' +
+            '<div class="contact-card">' +
+              '<div class="contact-row"><span class="contact-label">' +
+                (L.wechat || 'WeChat') + '</span>' +
+                '<span class="contact-value" data-copy="Lambda_Prime">Lambda_Prime</span></div>' +
+              '<div class="contact-row"><span class="contact-label">' +
+                (L.qq || 'QQ') + '</span>' +
+                '<span class="contact-value" data-copy="1637321445">1637321445</span></div>' +
+              '<div class="contact-row"><span class="contact-label">' +
+                (L.email || 'Email') + '</span>' +
+                '<span class="contact-value" data-copy="1637321445@qq.com">1637321445@qq.com</span></div>' +
+            '</div>' +
+            '<div class="pay-note">' +
+              (L.tellPlan || 'Tell us which plan and the email on this account.') +
+              ' <strong>' + (plan && plan.name ? plan.name : '') + '</strong> — ' +
+              (plan && plan.price_label ? plan.price_label : '') +
+            '</div>' +
+            '<div class="pay-note">' +
+              (L.orRedeem || 'Already have a code? Use Redeem code in the sidebar.') +
+            '</div>';
+
+        Array.prototype.forEach.call(pay.querySelectorAll('[data-copy]'), function (el) {
+            el.addEventListener('click', function () {
+                const value = el.dataset.copy;
+                const done = function () {
+                    const was = el.textContent;
+                    el.textContent = L.copied || 'Copied';
+                    setTimeout(function () { el.textContent = was; }, 1200);
+                };
+                if (navigator.clipboard) navigator.clipboard.writeText(value).then(done, done);
+                else done();
             });
-            const data = await res.json();
-
-            if (!res.ok) {
-                msg.className = 'redeem-msg error';
-                msg.innerText = data.message || data.error || (L.upgradeFailed || 'Could not start the upgrade.');
-                return;
-            }
-            if (data.warning || !data.intent) {
-                msg.className = 'redeem-msg error';
-                msg.innerText = data.warning || 'No payment method is configured. Please contact us.';
-                return;
-            }
-
-            const orderId = (data.order && data.order.id) || '';
-            pay.style.display = '';
-            pay.innerHTML =
-                '<div>' + (L.upgradePasteRef ||
-                           'Complete the payment, then paste this reference into the message:') + '</div>' +
-                '<div class="ref">' + orderId + '</div>' +
-                '<div style="margin-top:6px;">' +
-                  '<a class="form-link" id="plan-open" target="_blank" rel="noopener">' +
-                    (L.upgradeOpenPay || 'Open the payment page') + '</a>' +
-                '</div>' +
-                '<div style="margin-top:6px; color:var(--text-secondary); font-size:12px;">' +
-                  (L.upgradeActivates ||
-                   'The plan activates once the payment is confirmed. Reopen this view to check.') +
-                '</div>';
-
-            const url = data.intent.url || data.intent.link;
-            const link = document.getElementById('plan-open');
-            if (url && link) {
-                link.href = url;
-                try { window.open(url, '_blank', 'noopener'); } catch (e) {}
-            } else if (link) {
-                link.style.display = 'none';
-            }
-            msg.className = 'redeem-msg success';
-            msg.innerText = (L.upgradeCreated || 'Order created. Reference:') + ' ' + orderId;
-        } catch (e) {
-            msg.className = 'redeem-msg error';
-            msg.innerText = L.upgradeOffline || 'Could not reach the server. Please try again.';
-        } finally {
-            col.classList.remove('busy');
-        }
+        });
     }
 
     function openRedeem() {
