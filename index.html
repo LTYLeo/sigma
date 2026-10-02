@@ -1378,9 +1378,6 @@
     const sidebarToggleBtn = document.getElementById('sidebar-toggle');
     const newChatBtn = document.getElementById('new-chat-btn');
 
-    // Signed-out visitors get the free lineup before anything loads.
-    applyPlanToModels();
-
     (function () {
         const box = document.getElementById('chat-container');
         const jump = document.getElementById('jump-latest');
@@ -2092,8 +2089,14 @@
         // request that comes back 401 after the user has typed a paragraph.
         if (!authToken) {
             const L = i18nMap[currentLang] || {};
-            addSystemNotice(L.loginRequired || 'Please log in to use Sigma.');
-            showLogin();
+            // The notice goes up first: if the dialog fails to open for any
+            // reason, the user is still told why nothing happened rather than
+            // left pressing a button that appears dead.
+            try { addSystemNotice(L.loginRequired || 'Please log in to use Sigma.'); } catch (e) {}
+            try { showLogin(); } catch (e) {
+                const btn = document.getElementById('sidebar-login-btn');
+                if (btn) btn.focus();
+            }
             return;
         }
         const text = messageInput.value.trim();
@@ -3012,6 +3015,15 @@
     updateModelDescription();
     toggleAttachmentButton();
     updateSendButton();
-</script>
+
+    // Signed-out visitors get the free lineup before anything arrives.
+    //
+    // Called here, at the end, and not earlier: it reads `modelSelect`, which is
+    // a `const` declared further down. Calling it above that line put the whole
+    // script into the temporal dead zone - applyPlanToModels threw, everything
+    // after it stopped running, and the failures looked unrelated to each other
+    // (the model list was never filtered, and the login dialog never opened).
+    applyPlanToModels();
+  </script>
 </body>
 </html>
