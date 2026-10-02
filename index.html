@@ -367,6 +367,16 @@
             background: rgba(255,255,255,.08);
         }
 
+        .system-notice {
+            max-width: 800px; margin: 14px auto; padding: 11px 16px;
+            border-radius: 10px; font-size: 13.5px;
+            background: rgba(255,196,0,.08); border: 1px solid rgba(255,196,0,.3);
+            color: var(--text-secondary);
+        }
+        /* Logged out: the composer reads as unavailable rather than broken. */
+        .input-area.locked { opacity: .55; }
+        .input-area.locked .message-box { cursor: not-allowed; }
+
         .plan-close {
             position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
             border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1;
@@ -1199,6 +1209,8 @@
             jumpLatest: "Jump to latest",
             renamePrompt: "Rename this conversation",
             renameFailed: "Rename failed",
+            loginRequired: "Please log in to use Sigma. Your account also carries your plan and usage.",
+            signedOutHint: "Log in to send messages",
             feat20Msgs: "20 messages a day",
             feat300Msgs: "300 messages a day",
             featNoCap: "No daily message limit",
@@ -1302,6 +1314,8 @@
             jumpLatest: "跳到最新",
             renamePrompt: "重命名这段对话",
             renameFailed: "重命名失败",
+            loginRequired: "请先登录再使用 Sigma。你的套餐和用量都绑定在账户上。",
+            signedOutHint: "登录后即可发送消息",
             feat20Msgs: "每天 20 条消息",
             feat300Msgs: "每天 300 条消息",
             featNoCap: "每日消息不限量",
@@ -1363,6 +1377,9 @@
     const sidebarEl = document.getElementById('sidebar');
     const sidebarToggleBtn = document.getElementById('sidebar-toggle');
     const newChatBtn = document.getElementById('new-chat-btn');
+
+    // Signed-out visitors get the free lineup before anything loads.
+    applyPlanToModels();
 
     (function () {
         const box = document.getElementById('chat-container');
@@ -1506,7 +1523,28 @@
     // Models the plan cannot use are removed from the list rather than shown
     // disabled. A greyed-out option is an advertisement; the upgrade page is
     // where that belongs, and a picker should offer only what it can deliver.
+    // What a signed-out visitor sees. The service is for account holders, so the
+    // picker offers the free tier's models rather than the whole lineup, and the
+    // send button asks them in rather than returning 401 into the transcript.
+    const SIGNED_OUT_MODELS = ['gtc25', 'gtc25_400m'];
+
     function applyPlanToModels() {
+        if (!authToken) {
+            Array.prototype.forEach.call(modelSelect.options, function (opt) {
+                const id = MODEL_IDS[opt.value];
+                const ok = !id || SIGNED_OUT_MODELS.indexOf(id) !== -1;
+                opt.hidden = !ok;
+                opt.disabled = !ok;
+            });
+            if (!MODEL_IDS[modelSelect.value] ||
+                SIGNED_OUT_MODELS.indexOf(MODEL_IDS[modelSelect.value]) === -1) {
+                modelSelect.value = 'GTC-2.5 mini';
+                updateModelDescription();
+            }
+            syncThinkingToggle();
+            return;
+        }
+
         const limits = (currentEntitlements || {}).limits;
         // No limits block means the platform did not answer. Show everything
         // then, rather than emptying the list over a network blip.
@@ -2049,6 +2087,15 @@
     async function sendMessage() {
         await API_READY;
         if (isSending) return;
+
+        // The service is for account holders. Asking is friendlier than a
+        // request that comes back 401 after the user has typed a paragraph.
+        if (!authToken) {
+            const L = i18nMap[currentLang] || {};
+            addSystemNotice(L.loginRequired || 'Please log in to use Sigma.');
+            showLogin();
+            return;
+        }
         const text = messageInput.value.trim();
         if (!text && !selectedImageBase64 && !recordedAudioBase64) return;
         isSending = true;
@@ -2391,6 +2438,18 @@
         if (force) typesetMath(el);
 
         stickToBottom(document.getElementById('chat-container'));
+    }
+
+    // A line in the transcript rather than an alert: it belongs with the thing
+    // it is about, and it does not have to be dismissed.
+    function addSystemNotice(message) {
+        const div = document.createElement('div');
+        div.className = 'system-notice';
+        div.innerText = message;
+        const box = document.getElementById('chat-inner');
+        if (box) box.appendChild(div);
+        const c = document.getElementById('chat-container');
+        if (c) c.scrollTop = c.scrollHeight;
     }
 
     function escapeHtml(str) { 
