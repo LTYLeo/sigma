@@ -2092,7 +2092,7 @@
             // The notice goes up first: if the dialog fails to open for any
             // reason, the user is still told why nothing happened rather than
             // left pressing a button that appears dead.
-            try { addSystemNotice(L.loginRequired || 'Please log in to use Sigma.'); } catch (e) {}
+            try { addSystemNotice(L.loginRequired || 'Please log in to use Sigma.', 'login'); } catch (e) {}
             try { showLogin(); } catch (e) {
                 const btn = document.getElementById('sidebar-login-btn');
                 if (btn) btn.focus();
@@ -2445,9 +2445,13 @@
 
     // A line in the transcript rather than an alert: it belongs with the thing
     // it is about, and it does not have to be dismissed.
-    function addSystemNotice(message) {
+    function addSystemNotice(message, kind) {
         const div = document.createElement('div');
         div.className = 'system-notice';
+        // Tagged so a notice that only described the previous state can be
+        // cleared when that state changes. A signed-out warning left sitting in
+        // a signed-in transcript reads as a live complaint.
+        if (kind) div.setAttribute('data-notice', kind);
         div.innerText = message;
         const box = document.getElementById('chat-inner');
         if (box) box.appendChild(div);
@@ -2512,6 +2516,9 @@
             localStorage.setItem('userData', JSON.stringify(currentUser));
             const notice = document.getElementById('login-notice');
             if (notice) { notice.style.display = 'none'; notice.innerText = ''; }
+            // The transcript's "please log in" line described a state that no
+            // longer holds.
+            clearNotices('login');
             updateUIAfterLogin();
             closeModals();
             await loadHistory();
@@ -2614,9 +2621,17 @@
         }
     }
 
+    function clearNotices(kind) {
+        document.querySelectorAll('.system-notice[data-notice="' + kind + '"]')
+            .forEach(el => el.remove());
+    }
+
     function applyEntitlements(ent) {
         if (!ent || !userRoleSpan) return;
         currentEntitlements = ent;
+
+        // Signed in: the "please log in" line has done its job.
+        clearNotices('login');
         const isAdmin = ent.plan === 'admin';
         const isPro = ent.plan === 'pro';
 
