@@ -1331,6 +1331,12 @@
         if (planModal && planModal.style.display !== 'none' && planCache) {
             renderPlans();
         }
+
+        // The account badge carries data-key="freeAccount" so the initial
+        // markup is not stuck in English. That same attribute makes the loop
+        // above overwrite it with "Free Account" on every language change -
+        // including for an admin. Re-apply the real label.
+        if (currentEntitlements) applyEntitlements(currentEntitlements);
     }
 
     function toggleLanguage() { 
