@@ -233,17 +233,25 @@
         }
         /* Reasoning switch. Rendered only for models and plans that support it,
            so its presence is itself the signal that it is available. */
+        /* Sits inside the composer beside the attach and mic buttons, so the
+           thing it affects is the thing it is next to. */
         .think-toggle {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 8px 14px; border-radius: 999px; cursor: pointer;
-            font-size: 13px; margin-right: 10px;
-            background: rgba(255,255,255,.05); border: 1px solid var(--card-border);
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 999px; cursor: pointer;
+            font-size: 12.5px; flex: none; white-space: nowrap;
+            background: transparent; border: 1px solid var(--card-border);
             color: var(--text-secondary);
         }
         .think-toggle:hover { border-color: rgba(59,130,246,.5); color: var(--text); }
         .think-toggle.on {
-            background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.6);
+            background: rgba(59,130,246,.20); border-color: rgba(59,130,246,.65);
             color: #fff; font-weight: 600;
+        }
+        /* On a narrow screen the label is the first thing to go; the brain glyph
+           still says what it is, and the title attribute explains it. */
+        @media (max-width: 520px) {
+            .think-toggle span { display: none; }
+            .think-toggle { padding: 6px 9px; }
         }
 
         /* ---- Markdown in replies ------------------------------------------
@@ -932,10 +940,6 @@
                 </select>
                 <div class="model-hover-card" id="model-description-card">Research preview of TAI Research's first vision-language model</div>
             </div>
-            <button class="think-toggle" id="think-toggle" style="display:none;"
-                    title="Let the model reason before answering">
-              <i class="fas fa-brain"></i> <span data-key="thinkingOn">Reasoning</span>
-            </button>
             <button class="lang-selector" id="lang-toggle"><i class="fas fa-globe"></i> <span id="lang-label">中文</span></button>
         </div>
     </div>
@@ -985,6 +989,10 @@
             <!-- 输入行 -->
             <div class="input-row" id="input-row">
                 <textarea id="message-input" class="message-box" placeholder="Message Sigma..." rows="1"></textarea>
+                <button class="think-toggle" id="think-toggle" style="display:none;"
+                        title="Let the model reason before answering">
+                  <i class="fas fa-brain"></i> <span data-key="thinkingOn">Reasoning</span>
+                </button>
                 <button class="attachment-btn" id="attachment-btn"><i class="fas fa-paperclip"></i></button>
                 <button class="mic-btn" id="mic-btn"><i class="fas fa-microphone"></i></button>
                 <button class="send-btn" id="send-btn" disabled><i class="fas fa-arrow-up"></i></button>
