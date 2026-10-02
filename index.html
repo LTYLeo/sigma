@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sigma — TAI Research</title>
     <link rel="icon" href="icon.jpg" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -803,6 +803,60 @@
             box-shadow: 0 0 20px rgba(74,158,255,0.15);
         }
     </style>
+  <style>
+    /* ---- Mobile ------------------------------------------------------------
+       Tuned for a phone in one hand: reachable controls, no horizontal
+       overflow, and respect for the notch and the home indicator. */
+    @media (max-width: 768px) {
+      /* The sidebar is a drawer here; give it a scrim so it reads as one and
+         dims the content behind it. */
+      body.sidebar-open::after {
+        content: '';
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, .55);
+        z-index: 150;
+      }
+      /* Header controls have to fit on one line and stay tappable. */
+      .header { padding: 10px 12px; gap: 8px; }
+      .logo-text { display: none; }
+      .model-selector { max-width: 42vw; }
+      .think-toggle span, .lang-selector span { display: none; }
+      .think-toggle, .lang-selector { padding: 8px 11px; }
+      .sidebar-toggle-icon { padding: 8px 10px; }
+
+      /* 44px is the smallest comfortable touch target. */
+      .new-chat-btn, .user-action-btn, .send-btn, .attachment-btn, .mic-btn {
+        min-height: 44px;
+      }
+      .history-item { padding: 12px 14px; }
+
+      /* Bubbles: a fixed max-width that assumes a desktop padding overflows. */
+      .message { padding: 0 12px; }
+      .message-bubble { max-width: 100%; }
+      .chat-inner { padding: 16px 12px 8px; }
+
+      /* Clear the home indicator and keep the composer above the keyboard. */
+      .input-area {
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+      }
+      .header { padding-top: calc(10px + env(safe-area-inset-top)); }
+
+      /* Tables and the plan dialog scroll rather than clipping. */
+      .compare-wrap, .upgrade-pay { max-width: 100%; overflow-x: auto; }
+      .modal-content.plan-content { width: 94vw; padding: 22px 18px; }
+      .plan-title { font-size: 22px; }
+      .plan-col { padding: 18px 16px; }
+      .plan-col-tag { font-size: 17px; }
+      .plan-col-price { font-size: 26px; }
+    }
+
+    /* Landscape phones are short: the welcome block pushes the composer off. */
+    @media (max-height: 480px) and (max-width: 900px) {
+      .welcome-area { padding: 20px 0; }
+      .welcome-title { font-size: 22px; margin-bottom: 6px; }
+      .welcome-sub { display: none; }
+    }
+  </style>
 </head>
 <body>
 
@@ -837,13 +891,11 @@
         <div class="header-right">
             <div class="model-wrapper">
                 <select id="model-select" class="model-selector">
+                    <option value="GTC-2.5 Turbo" selected>GTC-2.5 Turbo</option>
+                    <option value="GTC-2.5o">GTC-2.5o</option>
                     <option value="GTC-2.5">GTC-2.5</option>
-                    <option value="GTC-2.5o" selected>GTC-2.5o</option>
                     <option value="GTC-2.5 mini">GTC-2.5 mini</option>
                     <option value="GTC-2.5V Preview">GTC-2.5V Preview</option>
-                    <option value="ESFT GTC-2">ESFT GTC-2</option>
-                    <option value="GTC-2 Large (Base)">GTC-2 Large (Base)</option>
-                    <option value="GTC-2.5 Turbo">GTC-2.5 Turbo</option>
                 </select>
                 <div class="model-hover-card" id="model-description-card">Research preview of TAI Research's first vision-language model</div>
             </div>
@@ -970,8 +1022,6 @@
         'GTC-2.5o': 'gtc25o',
         'GTC-2.5 mini': 'gtc25',
         'GTC-2.5V Preview': 'gtc25v',
-        'ESFT GTC-2': 'esft',
-        'GTC-2 Large (Base)': 'large',
         'GTC-2.5 Turbo': 'tfmf'
     };
     let currentUser = null;
@@ -1059,8 +1109,6 @@
             modelDesc1: "Omni-modal model supporting text, image, and audio understanding",
             modelDesc2: "A compact and efficient preview model of the GTC-2.5 series",
             modelDesc3: "Research preview of TAI Research's first vision-language model",
-            modelDesc4: "Early Supervised Fine-Tuned GTC-2 model for improved conversational performance",
-            modelDesc5: "A large size of GTC-2 Series Language Base Model which offers better text completion",
             modelDesc6: "The most capable general-purpose model we have built to date"
         },
         zh: {
@@ -1141,8 +1189,6 @@
             modelDesc1: "支持文本、图像和音频的全模态模型",
             modelDesc2: "GTC-2.5 系列紧凑高效的预览模型",
             modelDesc3: "TAI Research 首个视觉语言模型的预览版",
-            modelDesc4: "经过早期监督微调的 GTC-2 模型，对话性能更佳",
-            modelDesc5: "GTC-2 系列大尺寸基座模型，文本生成能力更强",
             modelDesc6: "迄今为止最强大的通用模型"
         }
     };
@@ -1261,8 +1307,6 @@
         else if (val === 'GTC-2.5o') desc = t.modelDesc1;
         else if (val === 'GTC-2.5 mini') desc = t.modelDesc2;
         else if (val === 'GTC-2.5V Preview') desc = t.modelDesc3;
-        else if (val === 'ESFT GTC-2') desc = t.modelDesc4;
-        else if (val === 'GTC-2 Large (Base)') desc = t.modelDesc5;
         else if (val === 'GTC-2.5 Turbo') desc = t.modelDesc6;
         modelDescCard.innerText = desc;
     }
@@ -1339,12 +1383,15 @@
             sidebarEl.classList.toggle('collapsed', isSidebarCollapsed);
         } else {
             sidebarEl.classList.toggle('open');
+            // Drives the scrim behind the drawer on narrow screens.
+            document.body.classList.toggle('sidebar-open', sidebarEl.classList.contains('open'));
         }
     }
     sidebarToggleBtn.addEventListener('click', toggleSidebarDesktop);
     
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && !sidebarEl.contains(e.target) && !sidebarToggleBtn.contains(e.target)) {
+            document.body.classList.remove('sidebar-open');
             sidebarEl.classList.remove('open');
         }
     });
