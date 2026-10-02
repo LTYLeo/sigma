@@ -254,6 +254,38 @@
             .think-toggle { padding: 6px 9px; }
         }
 
+        /* ---- Reasoning disclosure ------------------------------------------
+           Folded away by default and capped in height, so a long chain of
+           thought is something you can open rather than something you scroll
+           past on the way to the answer. */
+        .reasoning {
+            margin: 0 0 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            background: rgba(255,255,255,.03);
+            overflow: hidden;
+        }
+        .reasoning > summary {
+            display: flex; align-items: center; gap: 9px;
+            padding: 11px 14px; cursor: pointer; list-style: none;
+            font-size: 13px; color: var(--text-secondary);
+            user-select: none;
+        }
+        .reasoning > summary::-webkit-details-marker { display: none; }
+        .reasoning > summary:hover { background: rgba(255,255,255,.04); color: var(--text); }
+        .reasoning-label { flex: 1; }
+        .reasoning-chevron { font-size: 11px; transition: transform .18s; }
+        .reasoning[open] .reasoning-chevron { transform: rotate(180deg); }
+        .reasoning-body {
+            max-height: 300px; overflow-y: auto;
+            padding: 4px 16px 14px;
+            border-top: 1px solid var(--card-border);
+            font-size: 13px; color: var(--text-secondary); line-height: 1.65;
+        }
+        .reasoning-body::-webkit-scrollbar { width: 7px; }
+        .reasoning-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 999px; }
+        .answer-body { margin-top: 2px; }
+
         /* ---- Markdown in replies ------------------------------------------
            Rendered output needs its own typography; without it a list, a table
            and a heading all arrive as the same wall of text. */
@@ -1090,6 +1122,7 @@
             today: "today",
             daysShort: "d",
             thinkingOn: "Reasoning",
+            reasoningLabel: "Reasoning",
             feat20Msgs: "20 messages a day",
             feat300Msgs: "300 messages a day",
             featNoCap: "No daily message limit",
@@ -1183,6 +1216,7 @@
             message: "消息",
             Reference: "订单号",
             thinkingOn: "推理过程",
+            reasoningLabel: "思考过程",
             feat20Msgs: "每天 20 条消息",
             feat300Msgs: "每天 300 条消息",
             featNoCap: "每日消息不限量",
@@ -1875,7 +1909,12 @@
         // plan does not include it; sending it only when allowed keeps the
         // request honest about what was actually used.
         if ((((currentEntitlements || {}).limits) || {}).context && conversationTurns.length) {
-            payload.messages = conversationTurns.slice(-MAX_CONTEXT_TURNS * 2);
+            // History plus the question being asked now. Sending history alone
+            // meant the server, which prefers `messages` over `text`, answered
+            // the previous question again.
+            payload.messages = conversationTurns
+                .slice(-MAX_CONTEXT_TURNS * 2)
+                .concat([{ role: 'user', content: payload.text }]);
         }
         // Reasoning is Pro-only as well, and off unless the switch is on.
         if (modelType === 'tfmf' && thinkingEnabled) {
@@ -1965,7 +2004,12 @@
             // Remember the exchange so the next request can carry it. Only used
             // on a plan with context, but recording costs nothing and means
             // upgrading mid-conversation starts working at once.
-            if (fullResponse) {
+            // Only real exchanges go into the history. An error string recorded
+            // as an assistant turn would be replayed to the model on every later
+            // request, and it would start treating its own outage as context.
+            const failed = !fullResponse || fullResponse.indexOf('\u26a0\ufe0f Error') === 0
+                           || fullResponse === 'No response from model.';
+            if (!failed) {
                 conversationTurns.push({ role: 'user', content: text });
                 conversationTurns.push({ role: 'assistant', content: fullResponse });
                 if (conversationTurns.length > MAX_CONTEXT_TURNS * 2) {
@@ -2007,11 +2051,52 @@
         return escapeHtml(text).replace(/\n/g, '<br>');
     }
 
+    // The reasoning arrives in the same stream as the answer, as a blockquote
+    // under a "Reasoning" heading. Rendered as-is it was an enormous quote that
+    // filled the screen. Split it out and put it in a collapsed disclosure, the
+    // way it is presented elsewhere: folded away, scrollable, opened on demand.
+    function splitReasoning(text) {
+        if (!text || text.indexOf('> **Reasoning**') !== 0) return { reasoning: '', answer: text || '' };
+        const lines = text.split('\n');
+        const reasoningLines = [];
+        let i = 1;                                   // skip the heading
+        for (; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.startsWith('>')) { reasoningLines.push(line.replace(/^>\s?/, '')); continue; }
+            if (line.trim() === '') { break; }        // the blank line that ends the quote
+            break;
+        }
+        return {
+            reasoning: reasoningLines.join('\n').trim(),
+            answer: lines.slice(i).join('\n').trim()
+        };
+    }
+
     function renderMarkdownThrottled(el, text, force) {
         const now = Date.now();
-        if (!force && now - _lastRender < 80) return;
+        // While more text is still arriving the disclosure must stay open, or
+        // each frame would snap it shut again.
+        const streaming = !force;
+        if (streaming && now - _lastRender < 80) return;
         _lastRender = now;
-        el.innerHTML = renderMarkdown(text);
+
+        const parts = splitReasoning(text);
+        if (parts.reasoning) {
+            const openAttr = streaming ? ' open' : '';
+            el.innerHTML =
+                '<details class="reasoning"' + openAttr + '>' +
+                  '<summary><i class="fas fa-brain"></i> ' +
+                    '<span class="reasoning-label">' +
+                      ((i18nMap[currentLang] || {}).reasoningLabel || 'Reasoning') +
+                    '</span>' +
+                    '<i class="fas fa-chevron-down reasoning-chevron"></i>' +
+                  '</summary>' +
+                  '<div class="reasoning-body">' + renderMarkdown(parts.reasoning) + '</div>' +
+                '</details>' +
+                (parts.answer ? '<div class="answer-body">' + renderMarkdown(parts.answer) + '</div>' : '');
+        } else {
+            el.innerHTML = renderMarkdown(parts.answer);
+        }
         const container = document.getElementById('chat-container');
         if (container) container.scrollTop = container.scrollHeight;
     }
