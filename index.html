@@ -936,6 +936,14 @@
             logout: "Log out", 
             loginBtn: "Log in / Sign up",
             redeemBtn: "Redeem code",
+            accountUnavailable: "Account unavailable",
+            sessionExpired: "Your session expired. Please log in again.",
+            micDenied: "Cannot access microphone. Please check permissions.",
+            deleteFailed: "Delete failed",
+            deleteConfirm: "Delete this conversation?",
+            audioRecorded: "Audio recorded",
+            audioLabel: "Audio",
+            today: "today",
             upgradeBtn: "Upgrade",
             upgradeYourPlan: "Your plan",
             upgradeAdmin: "You are an Administrator.",
@@ -992,6 +1000,27 @@
             noHistory: "暂无历史记录", 
             logout: "退出登录", 
             loginBtn: "登录 / 注册",
+            redeemBtn: "兑换码",
+            accountUnavailable: "账户信息不可用",
+            sessionExpired: "登录已过期，请重新登录。",
+            micDenied: "无法访问麦克风，请检查权限。",
+            deleteFailed: "删除失败",
+            deleteConfirm: "确定删除这段对话？",
+            audioRecorded: "已录制音频",
+            audioLabel: "音频",
+            today: "今日",
+            redeemTitle: "兑换码",
+            redeemHint: "输入你收到的兑换码。兑换码不区分大小写。",
+            redeemSubmit: "兑换",
+            redeemEmpty: "请输入兑换码。",
+            redeemFailed: "兑换失败，请检查兑换码后重试。",
+            redeemOffline: "无法连接服务器。",
+            proAccount: "Pro 账户",
+            freeAccount: "免费账户",
+            adminAccount: "管理员账户",
+            noPlatformAccount: "请先用同一邮箱在开发者平台注册，然后回来兑换。",
+            message: "消息",
+            Reference: "订单号",
             upgradeBtn: "升级",
             upgradeYourPlan: "你的套餐",
             upgradeAdmin: "你是管理员。",
@@ -1118,6 +1147,22 @@
         if (logoutBtn) logoutBtn.querySelector('span').innerText = t.logout;
         updateModelDescription();
         langLabelSpan.innerText = currentLang === 'en' ? '中文' : 'English';
+
+        // Things rendered by JavaScript rather than by a data-key attribute do
+        // not get picked up by the loop above, so switching language while the
+        // upgrade dialog was open left it in the old one.
+        const upBtn = document.getElementById('upgrade-btn');
+        if (upBtn) {
+            const label = upBtn.querySelector('span');
+            const plan = (currentEntitlements && currentEntitlements.plan) || 'free';
+            if (label) label.innerText = (plan === 'pro' || plan === 'admin')
+                ? (t.upgradeYourPlan || 'Your plan')
+                : (t.upgradeBtn || 'Upgrade');
+        }
+        const planModal = document.getElementById('plan-modal');
+        if (planModal && planModal.style.display !== 'none' && planCache) {
+            renderPlans();
+        }
     }
 
     function toggleLanguage() { 
@@ -1239,7 +1284,7 @@
             micBtn.querySelector('i').className = 'fas fa-stop';
         } catch (err) {
             console.error('Microphone error:', err);
-            alert('Cannot access microphone. Please check permissions.');
+            alert(((i18nMap[currentLang]||{}).micDenied||'Cannot access microphone. Please check permissions.'));
         }
     }
 
@@ -1268,7 +1313,7 @@
         for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
         recordedAudioBase64 = btoa(binary);
 
-        audioLabel.textContent = `Audio (${duration}s)`;
+        audioLabel.textContent = ((i18nMap[currentLang]||{}).audioLabel||'Audio') + ' (' + duration + 's)';
         audioPreviewArea.classList.add('active');
         updateSendButton();
 
@@ -1280,7 +1325,7 @@
     function clearAudioAttachment() {
         recordedAudioBase64 = null;
         audioPreviewArea.classList.remove('active');
-        audioLabel.textContent = 'Audio recorded';
+        audioLabel.textContent = ((i18nMap[currentLang]||{}).audioRecorded||'Audio recorded');
         updateSendButton();
     }
 
@@ -1486,12 +1531,12 @@
                     deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
                     deleteBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
-                        if (confirm('Delete this conversation?')) {
+                        if (confirm(((i18nMap[currentLang]||{}).deleteConfirm||'Delete this conversation?'))) {
                             const ok = await deleteConversation(item.timestamp);
                             if (ok) {
                                 await loadHistory();
                             } else {
-                                alert('Delete failed');
+                                alert(((i18nMap[currentLang]||{}).deleteFailed||'Delete failed'));
                             }
                         }
                     });
@@ -1750,7 +1795,7 @@
             closeModals();
             await loadHistory();
         } catch(e) {
-            if (notice) { notice.innerText = 'Could not reach the server.'; notice.style.display = 'block'; }
+            if (notice) { notice.innerText = ((i18nMap[currentLang]||{}).redeemOffline||'Could not reach the server.'); notice.style.display = 'block'; }
         }
     }
 
@@ -1780,7 +1825,7 @@
             updateUIAfterLogin();
             closeModals();
             await loadHistory();
-        } catch(e) { alert('Could not reach the server.'); }
+        } catch(e) { alert(((i18nMap[currentLang]||{}).redeemOffline||'Could not reach the server.')); }
     }
 
     document.getElementById('do-login')?.addEventListener('click', doLogin);
@@ -1818,7 +1863,7 @@
         logout();
         const notice = document.getElementById('login-notice');
         if (notice) {
-            notice.innerText = 'Your session expired. Please log in again.';
+            notice.innerText = ((i18nMap[currentLang]||{}).sessionExpired||'Your session expired. Please log in again.');
             notice.style.display = 'block';
         }
         showLogin();
@@ -1836,14 +1881,14 @@
             if (!res.ok) {
                 // Never show "Free Account" as if it were confirmed. If we could
                 // not read the tier, say so - a wrong badge is worse than none.
-                userRoleSpan.innerText = 'Account unavailable (HTTP ' + res.status + ')';
+                userRoleSpan.innerText = ((i18nMap[currentLang]||{}).accountUnavailable||'Account unavailable') + ' (HTTP ' + res.status + ')';
                 userRoleSpan.classList.remove('is-pro');
                 return;
             }
             const data = await res.json();
             applyEntitlements(data.entitlements);
         } catch (e) {
-            userRoleSpan.innerText = 'Account unavailable (offline)';
+            userRoleSpan.innerText = ((i18nMap[currentLang]||{}).accountUnavailable||'Account unavailable') + ' (offline)';
             userRoleSpan.classList.remove('is-pro');
         }
     }
@@ -1870,15 +1915,16 @@
         userRoleSpan.classList.toggle('is-pro', isPro || isAdmin);
         userRoleSpan.classList.toggle('is-admin', isAdmin);
         if (isAdmin) {
-            userRoleSpan.innerText = 'Admin Account';
+            userRoleSpan.innerText = (i18nMap[currentLang] || {}).adminAccount || 'Admin Account';
         } else if (isPro) {
             userRoleSpan.innerText = ent.days_left != null
                 ? `Pro Account · ${ent.days_left}d left`
                 : 'Pro Account';
         } else if (ent.daily_limit) {
-            userRoleSpan.innerText = `Free Account · ${ent.daily_used || 0}/${ent.daily_limit} today`;
+            userRoleSpan.innerText = ((i18nMap[currentLang] || {}).freeAccount || 'Free Account') +
+                ' · ' + (ent.daily_used || 0) + '/' + ent.daily_limit + ' ' + ((i18nMap[currentLang] || {}).today || 'today');
         } else {
-            userRoleSpan.innerText = 'Free Account';
+            userRoleSpan.innerText = (i18nMap[currentLang] || {}).freeAccount || 'Free Account';
         }
     }
 
@@ -1928,7 +1974,7 @@
             } catch (e) {
                 cols.innerHTML = '';
                 msg.className = 'redeem-msg error';
-                msg.innerText = 'Could not load the plans. Please try again.';
+                msg.innerText = ((i18nMap[currentLang]||{}).upgradeLoadFailed||'Could not load the plans.');
                 return;
             }
         }
@@ -2106,10 +2152,10 @@
         // If the platform has no account for this email, redeeming cannot work:
         // say so before the user types anything.
         if (currentEntitlements && currentEntitlements.source === 'local') {
-            hint.innerText = 'Register on the Developer Platform with the same email first, then come back to redeem.';
+            hint.innerText = ((i18nMap[currentLang]||{}).noPlatformAccount||'Register on the Developer Platform with the same email first, then come back to redeem.');
             hint.style.color = '#ffd479';
         } else {
-            hint.innerText = 'Enter the code you received. Codes are not case sensitive.';
+            hint.innerText = ((i18nMap[currentLang]||{}).redeemHint||'Enter the code you received.');
             hint.style.color = '';
         }
         rm.style.display = 'flex';
@@ -2123,7 +2169,7 @@
         const code = (input.value || '').trim();
         msg.className = 'redeem-msg';
         if (!code) {
-            msg.innerText = 'Please enter a code.';
+            msg.innerText = ((i18nMap[currentLang]||{}).redeemEmpty||'Please enter a code.');
             msg.classList.add('error');
             return;
         }
@@ -2149,7 +2195,7 @@
             input.value = '';
             applyEntitlements(data.entitlements);
         } catch (e) {
-            msg.innerText = 'Could not reach the server.';
+            msg.innerText = ((i18nMap[currentLang]||{}).redeemOffline||'Could not reach the server.');
             msg.classList.add('error');
         } finally {
             btn.disabled = false;
