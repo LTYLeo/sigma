@@ -1197,6 +1197,8 @@
             stopped: "Stopped.",
             stoppedEmpty: "Stopped before any output.",
             jumpLatest: "Jump to latest",
+            renamePrompt: "Rename this conversation",
+            renameFailed: "Rename failed",
             feat20Msgs: "20 messages a day",
             feat300Msgs: "300 messages a day",
             featNoCap: "No daily message limit",
@@ -1298,6 +1300,8 @@
             stopped: "已停止。",
             stoppedEmpty: "在产生输出前已停止。",
             jumpLatest: "跳到最新",
+            renamePrompt: "重命名这段对话",
+            renameFailed: "重命名失败",
             feat20Msgs: "每天 20 条消息",
             feat300Msgs: "每天 300 条消息",
             featNoCap: "每日消息不限量",
@@ -1817,6 +1821,20 @@
     // ============================================================
     // 保存对话历史
     // ============================================================
+    async function renameThread(threadId, title) {
+        try {
+            const res = await apiFetch(`${API_BASE}/rename_thread`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ thread_id: threadId, title: title })
+            });
+            return res.ok;
+        } catch (e) { return false; }
+    }
+
     async function saveConversation(input, output, image = null, audio = null) {
         await API_READY;
         if (!authToken) return;
@@ -1932,6 +1950,24 @@
                     }
                     textSpan.addEventListener('click', () => loadThreadToUI(thread));
 
+                    if (item.title) {
+                        textSpan.innerText = item.title;
+                    }
+
+                    const renameBtn = document.createElement('button');
+                    renameBtn.className = 'delete-btn';
+                    renameBtn.innerHTML = '<i class="fas fa-pen"></i>';
+                    renameBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const L = i18nMap[currentLang] || {};
+                        const current = item.title || (thread.items[0].input || '').slice(0, 36);
+                        const next = prompt(L.renamePrompt || 'Rename this conversation', current);
+                        if (next === null) return;
+                        const ok = await renameThread(thread.id, next.trim());
+                        if (ok) await loadHistory();
+                        else alert(L.renameFailed || 'Rename failed');
+                    });
+
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn';
                     deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
@@ -1948,6 +1984,7 @@
                     });
 
                     div.appendChild(textSpan);
+                    div.appendChild(renameBtn);
                     div.appendChild(deleteBtn);
                     historyListDiv.appendChild(div);
                 });
@@ -1962,11 +1999,25 @@
     function loadThreadToUI(thread) {
         startNewChat();
         currentThreadId = thread.id;
-        thread.items.forEach(item => loadConversationToUI(item, true));
+        // Rebuild the context from what is on screen. Without this the next
+        // message carried no history and the model answered as if the
+        // conversation had just started.
+        conversationTurns = [];
+        thread.items.forEach(item => {
+            if (item.input) conversationTurns.push({ role: 'user', content: item.input });
+            if (item.output) conversationTurns.push({ role: 'assistant', content: item.output });
+            loadConversationToUI(item, true);
+        });
+        if (conversationTurns.length > MAX_CONTEXT_TURNS * 2) {
+            conversationTurns = conversationTurns.slice(-MAX_CONTEXT_TURNS * 2);
+        }
     }
 
     function loadConversationToUI(conv, keepThread) {
-        startNewChat();
+        // loadThreadToUI replays several exchanges and sets the id itself.
+        // Starting a fresh chat here reset it on every one, so continuing a
+        // loaded conversation wrote into a brand new thread.
+        if (!keepThread) startNewChat();
         if (document.getElementById('welcome-area')) document.getElementById('welcome-area').remove();
         
         const userDiv = document.createElement('div');
