@@ -330,6 +330,19 @@
         .message-bubble a { color: #7bd1ff; }
         .message-bubble hr { border: none; border-top: 1px solid var(--card-border); margin: 14px 0; }
 
+        /* The send button turns into a stop control while a reply is arriving.
+           Filled and square, so it reads as a different action rather than a
+           dimmed version of the same one. */
+        .send-btn.stopping {
+            background: rgba(255,255,255,.14);
+            border-radius: 10px;
+        }
+        .send-btn.stopping:hover { background: rgba(255,255,255,.22); }
+        .stopped-note {
+            margin-top: 8px; font-size: 12px; color: var(--text-secondary);
+            font-style: italic;
+        }
+
         .plan-close {
             position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
             border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1;
@@ -1105,6 +1118,10 @@
     // long it took rather than just "Reasoning".
     let thinkingStartedAt = 0;
 
+    // Holds the in-flight generation so it can be cancelled. Without one a
+    // streamed answer could only be waited out, however wrong it had gone.
+    let generateController = null;
+
     // Display name -> the identifier the backend knows. Defined once: the send
     // path and the plan filter both need it, and two copies would drift.
     const MODEL_IDS = {
@@ -1143,6 +1160,9 @@
             reasoningFor: "Thought for",
             reasoningSeconds: "s",
             reasoningThinking: "Thinking…",
+            stopGenerating: "Stop",
+            stopped: "Stopped.",
+            stoppedEmpty: "Stopped before any output.",
             feat20Msgs: "20 messages a day",
             feat300Msgs: "300 messages a day",
             featNoCap: "No daily message limit",
@@ -1240,6 +1260,9 @@
             reasoningFor: "思考了",
             reasoningSeconds: "秒",
             reasoningThinking: "正在思考…",
+            stopGenerating: "停止",
+            stopped: "已停止。",
+            stoppedEmpty: "在产生输出前已停止。",
             feat20Msgs: "每天 20 条消息",
             feat300Msgs: "每天 300 条消息",
             featNoCap: "每日消息不限量",
@@ -1723,7 +1746,19 @@
         const hasText = messageInput.value.trim().length > 0;
         const hasImage = selectedImageBase64 !== null;
         const hasAudio = recordedAudioBase64 !== null;
-        sendBtn.disabled = !(hasText || hasImage || hasAudio) || isSending;
+        // While a reply is arriving the same button stops it, the way it does
+        // in every chat interface people already use.
+        if (isSending) {
+            sendBtn.disabled = false;
+            sendBtn.classList.add('stopping');
+            sendBtn.innerHTML = '<i class="fas fa-stop"></i>';
+            sendBtn.title = (i18nMap[currentLang] || {}).stopGenerating || 'Stop';
+            return;
+        }
+        sendBtn.classList.remove('stopping');
+        sendBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
+        sendBtn.title = '';
+        sendBtn.disabled = !(hasText || hasImage || hasAudio);
     }
 
     // ============================================================
@@ -1960,10 +1995,12 @@
         thinkingStartedAt = Date.now();
 
         try {
+            generateController = new AbortController();
             const response = await apiFetch(`${API_BASE}/generate`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: generateController.signal
             });
 
             if (!response.ok) {
@@ -2044,6 +2081,8 @@
                 }
             }
 
+            generateController = null;
+
             if (authToken) {
                 await saveConversation(text || '[Audio]', fullResponse, imageData, audioData);
                 await loadHistory();
@@ -2052,6 +2091,21 @@
         } catch (err) {
             console.error('Error:', err);
             const bubbleDiv = aiMsgDiv.querySelector('.message-bubble');
+            if (err && err.name === 'AbortError') {
+                // Stopping is deliberate. Keep whatever was streamed, and say so
+                // rather than reporting an error the user caused on purpose.
+                if (fullResponse) {
+                    renderMarkdownThrottled(bubbleDiv, fullResponse, true, thinkingStartedAt);
+                    bubbleDiv.insertAdjacentHTML('beforeend',
+                        '<div class="stopped-note">' +
+                        ((i18nMap[currentLang] || {}).stopped || 'Stopped') + '</div>');
+                } else {
+                    bubbleDiv.innerHTML = '<span style="color:var(--text-secondary);">' +
+                        ((i18nMap[currentLang] || {}).stoppedEmpty || 'Stopped before any output.') +
+                        '</span>';
+                }
+                return;
+            }
             fullResponse = `⚠️ Error: ${err.message}`;
             bubbleDiv.innerHTML = `<span style="color:#f28b82;">${escapeHtml(fullResponse)}</span>`;
         } finally {
@@ -2708,7 +2762,14 @@
         }
     });
     
-    sendBtn.addEventListener('click', sendMessage);
+    sendBtn.addEventListener('click', function () {
+        // Same control, two jobs: stop while generating, send otherwise.
+        if (isSending && generateController) {
+            generateController.abort();
+            return;
+        }
+        sendMessage();
+    });
 
     // ============================================================
     // 启动
