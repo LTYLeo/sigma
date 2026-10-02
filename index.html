@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <style>
         * {
@@ -328,6 +331,11 @@
             background: rgba(59,130,246,.06); border-radius: 0 8px 8px 0;
         }
         .message-bubble a { color: #7bd1ff; }
+        /* A wide display equation scrolls inside its own block rather than
+           pushing the whole conversation sideways. */
+        .message-bubble .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+        .message-bubble .katex { font-size: 1.05em; }
+
         .message-bubble hr { border: none; border-top: 1px solid var(--card-border); margin: 14px 0; }
 
         /* The send button turns into a stop control while a reply is arriving.
@@ -2217,6 +2225,28 @@
         if (btn && el) btn.style.display = isNearBottom(el) ? 'none' : '';
     }
 
+    // Math is typeset after the markup is inserted rather than inside the
+    // Markdown parser: KaTeX builds its own DOM, so nothing it generates has to
+    // be whitelisted back through the sanitiser.
+    //
+    // Only on the final render. Running it on every streamed chunk would
+    // re-typeset the whole message many times a second for no visible gain.
+    function typesetMath(el) {
+        if (!el || !window.renderMathInElement) return;
+        try {
+            window.renderMathInElement(el, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '\\[', right: '\\]', display: true },
+                    { left: '$', right: '$', display: false },
+                    { left: '\\(', right: '\\)', display: false }
+                ],
+                throwOnError: false,
+                ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option']
+            });
+        } catch (e) { /* a malformed expression must not break the message */ }
+    }
+
     let _lastRender = 0;
     function renderMarkdown(text) {
         if (!text) return '';
@@ -2277,6 +2307,7 @@
         if (!parts.reasoning) {
             // No reasoning in this reply: plain answer, nothing folded away.
             el.innerHTML = renderMarkdown(parts.answer);
+            if (force) typesetMath(el);
             stickToBottom(document.getElementById('chat-container'));
             return;
         }
@@ -2305,8 +2336,9 @@
         // text already streamed while the next chunk is parsed.
         if (parts.answer) answer.innerHTML = renderMarkdown(parts.answer);
 
-        // Follow the stream only while the reasoning panel is closed - if the
-        // reader has opened it to read, scrolling them away is hostile.
+        // Typeset only the finished message.
+        if (force) typesetMath(el);
+
         stickToBottom(document.getElementById('chat-container'));
     }
 
