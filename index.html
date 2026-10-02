@@ -1096,6 +1096,9 @@
             upgradeRequired: "Plus or Pro required",
             upgradeBtn: "Upgrade",
             upgradeYourPlan: "Your plan",
+            upgradeIncludes: "Includes:",
+            upgradeRecommended: "Recommended",
+            upgradePerMonth: "month",
             upgradeAdmin: "You are an Administrator.",
             upgradeAdminNote: "Every model is available and nothing is metered.",
             upgradeTopTier: "You are already on the highest plan.",
@@ -1186,6 +1189,9 @@
             upgradeRequired: "需要 Plus 或 Pro",
             upgradeBtn: "升级",
             upgradeYourPlan: "你的套餐",
+            upgradeIncludes: "包含：",
+            upgradeRecommended: "推荐",
+            upgradePerMonth: "每月",
             upgradeAdmin: "你是管理员。",
             upgradeAdminNote: "全部模型可用，且不计费。",
             upgradeTopTier: "你已经在最高级订阅了。",
@@ -2189,6 +2195,12 @@
         } else {
             userRoleSpan.innerText = (i18nMap[currentLang] || {}).freeAccount || 'Free Account';
         }
+
+        // The model list and the reasoning switch both depend on the plan, and
+        // this is the only place the plan arrives. Without this call they were
+        // only refreshed when the upgrade dialog was closed - so the switch
+        // never appeared at all.
+        applyPlanToModels();
     }
 
     // ---------- Upgrade ----------
@@ -2348,8 +2360,12 @@
                   '<span class="plan-col-name">' + plan.name + '</span>' +
                   (plan.id === 'pro' ? '<span class="plan-rec">' + (L.upgradeRecommended || 'Recommended') + '</span>' : '') +
                 '</div>' +
-                '<div class="plan-col-tag">' + (plan.tagline || plan.name) + '</div>' +
-                '<div class="plan-col-desc">' + (plan.summary || '') + '</div>' +
+                '<div class="plan-col-tag">' +
+                  ((currentLang === 'zh' && plan.tagline_zh) ? plan.tagline_zh : (plan.tagline || plan.name)) +
+                '</div>' +
+                '<div class="plan-col-desc">' +
+                  ((currentLang === 'zh' && plan.summary_zh) ? plan.summary_zh : (plan.summary || '')) +
+                '</div>' +
                 '<div class="plan-col-price">' + price + '</div>' +
                 cta +
                 '<div class="plan-feat-lead">' + (L.upgradeIncludes || 'Includes:') + '</div>' +
