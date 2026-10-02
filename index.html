@@ -817,7 +817,7 @@
                 <div class="user-avatar" id="user-avatar"></div>
                 <div class="user-details">
                     <div class="username" id="username-display"></div>
-                    <div class="user-role" id="user-role-display">Free Account</div>
+                    <div class="user-role" id="user-role-display" data-key="freeAccount">Free Account</div>
                 </div>
             </div>
             <button class="user-action-btn upgrade-btn" id="upgrade-btn" style="display:none;"><i class="fas fa-arrow-up"></i> <span data-key="upgradeBtn">Upgrade</span></button>
@@ -843,6 +843,7 @@
                     <option value="GTC-2.5V Preview">GTC-2.5V Preview</option>
                     <option value="ESFT GTC-2">ESFT GTC-2</option>
                     <option value="GTC-2 Large (Base)">GTC-2 Large (Base)</option>
+                    <option value="GTC-2.5 Turbo">GTC-2.5 Turbo</option>
                 </select>
                 <div class="model-hover-card" id="model-description-card">Research preview of TAI Research's first vision-language model</div>
             </div>
@@ -998,6 +999,17 @@
             today: "today",
             daysShort: "d",
             thinkingOn: "Reasoning",
+            feat20Msgs: "20 messages a day",
+            feat300Msgs: "300 messages a day",
+            featNoCap: "No daily message limit",
+            featSmallModels: "The two smaller models",
+            featAllButFrontier: "Every model except the frontier previews",
+            featAllModels: "Every model we serve",
+            featTurbo: "GTC-2.5 Turbo",
+            featContext: "Remembers the conversation",
+            featReasoning: "Reasons before answering",
+            featFrontier: "Limited access to frontier research previews",
+            featPriority: "Priority when it is busy",
             upgradeRequired: "Plus or Pro required",
             upgradeBtn: "Upgrade",
             upgradeYourPlan: "Your plan",
@@ -1079,6 +1091,17 @@
             message: "消息",
             Reference: "订单号",
             thinkingOn: "推理过程",
+            feat20Msgs: "每天 20 条消息",
+            feat300Msgs: "每天 300 条消息",
+            featNoCap: "每日消息不限量",
+            featSmallModels: "两个较小的模型",
+            featAllButFrontier: "除前沿预览外的全部模型",
+            featAllModels: "我们提供的全部模型",
+            featTurbo: "GTC-2.5 Turbo",
+            featContext: "记得之前的对话内容",
+            featReasoning: "回答前先进行推理",
+            featFrontier: "有限访问前沿研究预览",
+            featPriority: "繁忙时优先处理",
             upgradeRequired: "需要 Plus 或 Pro",
             upgradeBtn: "升级",
             upgradeYourPlan: "你的套餐",
@@ -1981,7 +2004,7 @@
         userAvatarSpan.innerText = currentUser.username.charAt(0).toUpperCase();
         // The plan is owned by the Developer Platform, so ask it rather than
         // trusting the role embedded in a token that may predate a purchase.
-        userRoleSpan.innerText = 'Free Account';
+        userRoleSpan.innerText = (i18nMap[currentLang] || {}).freeAccount || 'Free Account';
         userRoleSpan.classList.remove('is-pro');
         refreshEntitlements();
     }
@@ -2121,23 +2144,39 @@
     // Feature lines per plan. Kept beside the renderer rather than in the
     // catalogue because they are presentation, not policy: the numbers come
     // from the platform, the wording is ours.
+    // What each plan includes, written the way plan pages usually are: every
+    // line names something the user gets, not a number they have to interpret.
+    // "Models: 5" is a spec; "GTC-2.5 Turbo included" is a reason to buy.
     function planFeatures(plan, L) {
         const rows = [];
-        rows.push([true, plan.daily_limit == null
-            ? (L.upgradeNoCap || 'No daily message cap')
-            : plan.daily_limit + ' ' + (L.upgradeMsgPerDay || 'messages per day')]);
+        const f = (key, fallback) => L[key] || fallback;
 
-        const models = plan.models ? plan.models.length : 0;
-        rows.push([true, models
-            ? (L.upgradeModels || 'Models') + ': ' + models
-            : (L.upgradeAllModels || 'Every model available')]);
+        if (plan.id === 'free') {
+            rows.push([true, f('feat20Msgs', '20 messages a day')]);
+            rows.push([true, f('featSmallModels', 'The two smaller models')]);
+            rows.push([false, f('featTurbo', 'GTC-2.5 Turbo')]);
+            rows.push([false, f('featContext', 'Remembers the conversation')]);
+            rows.push([false, f('featReasoning', 'Reasons before answering')]);
+            return rows;
+        }
 
-        rows.push([!!plan.reasoning, L.upgradeReasoning || 'Reasoning']);
-        rows.push([!!plan.frontier, L.upgradeFrontier || 'Frontier research previews'
-            ? (L.upgradeFrontier || 'Frontier research previews') +
-              (plan.frontier ? ' (' + (L.upgradeFrontierLimited || 'Limited') + ')' : '')
-            : '']);
-        rows.push([!!plan.priority, L.upgradePriority || 'Priority when busy']);
+        if (plan.id === 'plus') {
+            rows.push([true, f('feat300Msgs', '300 messages a day')]);
+            rows.push([true, f('featTurbo', 'GTC-2.5 Turbo')]);
+            rows.push([true, f('featAllButFrontier', 'Every model except the frontier previews')]);
+            rows.push([false, f('featContext', 'Remembers the conversation')]);
+            rows.push([false, f('featReasoning', 'Reasons before answering')]);
+            return rows;
+        }
+
+        // Pro, and anything above it: everything, described.
+        rows.push([true, f('featNoCap', 'No daily message limit')]);
+        rows.push([true, f('featAllModels', 'Every model we serve')]);
+        rows.push([true, f('featTurbo', 'GTC-2.5 Turbo')]);
+        rows.push([true, f('featContext', 'Remembers the conversation')]);
+        rows.push([true, f('featReasoning', 'Reasons before answering')]);
+        rows.push([true, f('featFrontier', 'Limited access to frontier research previews')]);
+        rows.push([true, f('featPriority', 'Priority when it is busy')]);
         return rows;
     }
 
