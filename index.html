@@ -343,6 +343,22 @@
             font-style: italic;
         }
 
+        /* Appears only once the reader has scrolled away from the live end of
+           the conversation. */
+        .jump-latest {
+            position: absolute; right: 24px; bottom: 120px; z-index: 30;
+            width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+            background: var(--card); border: 1px solid var(--card-border);
+            color: var(--text); backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .jump-latest:hover { background: rgba(59,130,246,.22); }
+        .thread-count {
+            display: inline-block; margin-left: 7px; padding: 1px 7px;
+            border-radius: 999px; font-size: 11px; color: var(--text-secondary);
+            background: rgba(255,255,255,.08);
+        }
+
         .plan-close {
             position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
             border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1;
@@ -1022,6 +1038,10 @@
 
 
     <div class="chat-container" id="chat-container">
+        <button class="jump-latest" id="jump-latest" style="display:none;"
+                data-key="jumpLatest" title="Jump to latest">
+          <i class="fas fa-arrow-down"></i>
+        </button>
         <div class="chat-inner" id="chat-inner">
             <div class="welcome-area" id="welcome-area">
                 <div class="welcome-title" id="welcome-title">How can I assist you today?</div>
@@ -1108,6 +1128,11 @@
     // expects, and trimmed to a window: every turn is resent on the next
     // request, so an unbounded history is an unbounded bill.
     let conversationTurns = [];
+
+    // One id per conversation, so the sidebar lists conversations rather than
+    // every single exchange. A new chat mints a new one.
+    let currentThreadId = 'thr_' + Date.now().toString(36) +
+                          Math.random().toString(36).slice(2, 8);
     const MAX_CONTEXT_TURNS = 8;
 
     // Off by default, Pro only. Reasoning shares the completion budget with the
@@ -1163,6 +1188,7 @@
             stopGenerating: "Stop",
             stopped: "Stopped.",
             stoppedEmpty: "Stopped before any output.",
+            jumpLatest: "Jump to latest",
             feat20Msgs: "20 messages a day",
             feat300Msgs: "300 messages a day",
             featNoCap: "No daily message limit",
@@ -1263,6 +1289,7 @@
             stopGenerating: "停止",
             stopped: "已停止。",
             stoppedEmpty: "在产生输出前已停止。",
+            jumpLatest: "跳到最新",
             feat20Msgs: "每天 20 条消息",
             feat300Msgs: "每天 300 条消息",
             featNoCap: "每日消息不限量",
@@ -1324,6 +1351,24 @@
     const sidebarEl = document.getElementById('sidebar');
     const sidebarToggleBtn = document.getElementById('sidebar-toggle');
     const newChatBtn = document.getElementById('new-chat-btn');
+
+    (function () {
+        const box = document.getElementById('chat-container');
+        const jump = document.getElementById('jump-latest');
+        if (box) {
+            box.addEventListener('scroll', function () {
+                _followStream = isNearBottom(box);
+                updateJumpButton(box);
+            }, { passive: true });
+        }
+        if (jump && box) {
+            jump.addEventListener('click', function () {
+                _followStream = true;
+                box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+                updateJumpButton(box);
+            });
+        }
+    })();
     const chatInner = document.getElementById('chat-inner');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
@@ -1778,6 +1823,7 @@
                     input, 
                     output, 
                     model: modelSelect.value,
+                    thread_id: currentThreadId,
                     image: image,
                     audio: audio
                 })
@@ -1840,7 +1886,23 @@
                     return;
                 }
 
-                uniqueHistory.slice().reverse().forEach(item => {
+                // Group by conversation. The sidebar used to list one row per
+                // exchange, so a five-message chat looked like five chats.
+                const threads = [];
+                const byId = {};
+                uniqueHistory.forEach(item => {
+                    const tid = item.thread_id || item.timestamp;
+                    if (!byId[tid]) {
+                        byId[tid] = { id: tid, items: [], last: item.timestamp };
+                        threads.push(byId[tid]);
+                    }
+                    byId[tid].items.push(item);
+                    byId[tid].last = item.timestamp;
+                });
+                threads.sort((a, b) => (a.items[0].timestamp < b.items[0].timestamp ? 1 : -1));
+
+                threads.forEach(thread => {
+                    const item = thread.items[0];
                     const div = document.createElement('div');
                     div.className = 'history-item';
 
@@ -1854,7 +1916,13 @@
                         displayText += ' 🎤';
                     }
                     textSpan.innerText = displayText.length > 36 ? displayText.slice(0,36)+'…' : displayText;
-                    textSpan.addEventListener('click', () => loadConversationToUI(item));
+                    if (thread.items.length > 1) {
+                        const n = document.createElement('span');
+                        n.className = 'thread-count';
+                        n.innerText = thread.items.length;
+                        textSpan.appendChild(n);
+                    }
+                    textSpan.addEventListener('click', () => loadThreadToUI(thread));
 
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn';
@@ -1862,7 +1930,7 @@
                     deleteBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         if (confirm(((i18nMap[currentLang]||{}).deleteConfirm||'Delete this conversation?'))) {
-                            const ok = await deleteConversation(item.timestamp);
+                            const ok = await deleteConversation(thread.last);
                             if (ok) {
                                 await loadHistory();
                             } else {
@@ -1882,7 +1950,14 @@
     // ============================================================
     // 加载单条对话到UI
     // ============================================================
-    function loadConversationToUI(conv) {
+    // A thread is every exchange sharing an id, oldest first.
+    function loadThreadToUI(thread) {
+        startNewChat();
+        currentThreadId = thread.id;
+        thread.items.forEach(item => loadConversationToUI(item, true));
+    }
+
+    function loadConversationToUI(conv, keepThread) {
         startNewChat();
         if (document.getElementById('welcome-area')) document.getElementById('welcome-area').remove();
         
@@ -1899,7 +1974,11 @@
         
         const aiDiv = document.createElement('div');
         aiDiv.className = 'message message-ai';
-        aiDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble">${renderMarkdown(conv.output)}</div>`;
+        aiDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble"></div>`;
+        // Same renderer as a live reply, so the reasoning is a folded panel here
+        // too rather than a screen-filling quote.
+        const replayBubble = aiDiv.querySelector('.message-bubble');
+        renderMarkdownThrottled(replayBubble, conv.output, true, null);
         
         chatInner.appendChild(userDiv);
         chatInner.appendChild(aiDiv);
@@ -2121,6 +2200,23 @@
     // Streamed replies would otherwise re-render on every chunk, which is
     // wasteful for a long answer, so renders are throttled and the final one is
     // always exact.
+    // Tracks whether the reader is at, or near, the bottom. Outside that band
+    // the stream stops following them: dragging the view down while somebody is
+    // reading upwards is what made this feel un-smooth.
+    let _followStream = true;
+    function isNearBottom(el) {
+        if (!el) return true;
+        return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    }
+    function stickToBottom(el) {
+        if (el && _followStream) el.scrollTop = el.scrollHeight;
+        updateJumpButton(el);
+    }
+    function updateJumpButton(el) {
+        const btn = document.getElementById('jump-latest');
+        if (btn && el) btn.style.display = isNearBottom(el) ? 'none' : '';
+    }
+
     let _lastRender = 0;
     function renderMarkdown(text) {
         if (!text) return '';
@@ -2181,8 +2277,7 @@
         if (!parts.reasoning) {
             // No reasoning in this reply: plain answer, nothing folded away.
             el.innerHTML = renderMarkdown(parts.answer);
-            const c0 = document.getElementById('chat-container');
-            if (c0) c0.scrollTop = c0.scrollHeight;
+            stickToBottom(document.getElementById('chat-container'));
             return;
         }
 
@@ -2212,11 +2307,7 @@
 
         // Follow the stream only while the reasoning panel is closed - if the
         // reader has opened it to read, scrolling them away is hostile.
-        const container = document.getElementById('chat-container');
-        const det = el.querySelector('.reasoning');
-        if (container && !(det && det.open && !parts.answer)) {
-            container.scrollTop = container.scrollHeight;
-        }
+        stickToBottom(document.getElementById('chat-container'));
     }
 
     function escapeHtml(str) { 
