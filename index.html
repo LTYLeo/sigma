@@ -173,6 +173,72 @@
             letter-spacing: 0.02em;
         }
 
+        /* Upgrade panel: three plans side by side. The point of the screen is
+           comparing them, which a single column cannot do. */
+        .upgrade-btn {
+            background: linear-gradient(135deg, rgba(255,212,121,.18), rgba(255,212,121,.06));
+            border: 1px solid rgba(255,212,121,.45) !important;
+            color: #ffd479 !important;
+            font-weight: 600;
+        }
+        .upgrade-btn:hover { background: rgba(255,212,121,.22); }
+        .upgrade-content { max-width: 760px; }
+        .current-plan {
+            padding: 12px 15px; border-radius: 11px; margin: 4px 0 18px;
+            background: rgba(123,209,255,.07); border: 1px solid rgba(123,209,255,.3);
+            font-size: 13px;
+        }
+        .plan-list {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px; margin: 4px 0 18px;
+        }
+        .plan-loading { color: var(--text-secondary); font-size: 13px; padding: 12px 0; }
+        .plan-card {
+            border: 1px solid rgba(255,255,255,.12); border-radius: 13px;
+            padding: 18px 16px; display: flex; flex-direction: column;
+            background: rgba(255,255,255,.02);
+        }
+        .plan-card.featured { border-color: rgba(255,212,121,.55); background: rgba(255,212,121,.05); }
+        .plan-card.current { border-color: rgba(123,209,255,.55); background: rgba(123,209,255,.05); }
+        .plan-card.busy { opacity: .6; pointer-events: none; }
+        .plan-card .plan-name { font-size: 16px; font-weight: 700; }
+        .plan-card .plan-price { font-size: 24px; font-weight: 700; color: #ffd479; margin: 9px 0 2px; }
+        .plan-card .plan-price small { font-size: 11.5px; font-weight: 400; color: var(--text-secondary); }
+        .plan-card .plan-summary {
+            font-size: 12.5px; color: var(--text-secondary); line-height: 1.6;
+            margin: 10px 0 15px; flex: 1;
+        }
+        .plan-card .plan-cta {
+            width: 100%; padding: 10px; border-radius: 9px; cursor: pointer;
+            border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05);
+            color: var(--text); font-size: 13.5px; font-weight: 600;
+        }
+        .plan-card.featured .plan-cta {
+            background: linear-gradient(135deg, #ffd479, #f0b429); color: #1a1300; border: none;
+        }
+        .plan-card .plan-cta:disabled {
+            opacity: .55; cursor: default; background: rgba(255,255,255,.05);
+            color: var(--text-secondary); border: 1px solid rgba(255,255,255,.12);
+        }
+        .compare-wrap { overflow-x: auto; margin-bottom: 14px; }
+        .compare { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .compare th, .compare td {
+            padding: 9px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.08);
+        }
+        .compare th { font-weight: 600; color: var(--text-secondary); font-size: 12px; }
+        .compare td:not(:first-child) { text-align: center; }
+        .compare .yes { color: #56d364; }
+        .compare .no { color: #6b7280; }
+        .upgrade-pay {
+            margin-top: 12px; padding: 13px 15px; border-radius: 11px;
+            background: rgba(96,165,250,.08); border: 1px solid rgba(96,165,250,.35); font-size: 13px;
+        }
+        .upgrade-pay .ref {
+            font-family: ui-monospace, Menlo, monospace; font-size: 16px; font-weight: 600;
+            color: #fff; background: rgba(0,0,0,.35); padding: 7px 12px;
+            border-radius: 8px; display: inline-block; margin: 7px 0; user-select: all;
+        }
+
         .redeem-msg {
             min-height: 18px;
             margin: 8px 0 4px;
@@ -676,7 +742,8 @@
                     <div class="user-role" id="user-role-display">Free Account</div>
                 </div>
             </div>
-            <button class="user-action-btn" id="redeem-btn"><i class="fas fa-ticket-alt"></i> <span data-key="redeemBtn">Redeem code</span></button>
+            <button class="user-action-btn upgrade-btn" id="upgrade-btn" style="display:none;"><i class="fas fa-arrow-up"></i> <span data-key="upgradeBtn">Upgrade</span></button>
+              <button class="user-action-btn" id="redeem-btn"><i class="fas fa-ticket-alt"></i> <span data-key="redeemBtn">Redeem code</span></button>
             <button class="user-action-btn" id="logout-btn"><i class="fas fa-sign-out-alt"></i> <span data-key="logout">Log out</span></button>
         </div>
         <button class="user-action-btn" id="sidebar-login-btn"><i class="fas fa-sign-in-alt"></i> <span data-key="loginBtn">Log in / Sign up</span></button>
@@ -744,6 +811,8 @@
 
 <div id="login-modal" class="modal"><div class="modal-content"><h3 id="modal-title-login">Log in</h3><p id="login-notice" class="redeem-msg error" style="display:none; text-align:center;"></p><input type="email" id="login-username" placeholder="Email" class="form-input" autocomplete="email"><input type="password" id="login-password" placeholder="Password" class="form-input"><button id="do-login" class="form-submit">Continue</button><div style="text-align:center; margin-top:12px;"><a id="switch-to-register" class="form-link">Create account</a></div></div></div>
 <div id="register-modal" class="modal"><div class="modal-content"><h3>Sign up</h3><input type="text" id="reg-username" placeholder="Display name (optional)" class="form-input" autocomplete="nickname"><input type="email" id="reg-email" placeholder="Email" class="form-input" autocomplete="email" required><input type="password" id="reg-password" placeholder="Password (at least 8 characters)" class="form-input" autocomplete="new-password"><button id="do-register" class="form-submit">Sign up</button><div style="text-align:center;"><a id="switch-to-login" class="form-link">Back to Log in</a></div></div></div>
+<div id="upgrade-modal" class="modal"><div class="modal-content upgrade-content"><h3 id="modal-title-upgrade">Upgrade your plan</h3><p class="redeem-hint" id="upgrade-hint">Billed monthly. Changes take effect immediately.</p><div class="current-plan" id="current-plan"></div><div id="plan-list" class="plan-list"><div class="plan-loading">Loading…</div></div><div class="compare-wrap"><table class="compare" id="compare-table"></table></div><div id="upgrade-msg" class="redeem-msg"></div><div id="upgrade-pay" class="upgrade-pay" style="display:none;"></div><div style="text-align:center; margin-top:12px;"><a id="close-upgrade" class="form-link">Close</a></div></div></div>
+
 <div id="redeem-modal" class="modal"><div class="modal-content"><h3 id="modal-title-redeem">Redeem a code</h3><p class="redeem-hint" id="redeem-hint">Enter the code you received. Codes are not case sensitive.</p><input type="text" id="redeem-code" placeholder="TAI-XXXX-XXXX-XXXX" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="redeem-msg" class="redeem-msg"></div><button id="do-redeem" class="form-submit">Redeem</button><div style="text-align:center; margin-top:12px;"><a id="close-redeem" class="form-link">Close</a></div></div></div>
 <script>
     // ---------- 后端配置 ----------
@@ -797,6 +866,34 @@
             logout: "Log out", 
             loginBtn: "Log in / Sign up",
             redeemBtn: "Redeem code",
+            upgradeBtn: "Upgrade",
+            upgradeYourPlan: "Your plan",
+            upgradeTopTier: "You are already on the highest plan.",
+            upgradeTitle: "Upgrade your plan",
+            upgradeSub: "Billed monthly. Changes take effect immediately.",
+            upgradeOnPlan: "You are on the",
+            upgradePlanWord: "plan",
+            upgradeDaysLeft: "days remaining",
+            upgradeCurrent: "Current plan",
+            upgradeIncluded: "Included",
+            upgradeChoose: "Choose",
+            upgradeMsgPerDay: "Messages per day",
+            upgradeUnlimited: "Unlimited",
+            upgradeModels: "Models",
+            upgradeAvailable: "available",
+            upgradeReasoning: "Reasoning",
+            upgradeFrontier: "Frontier research previews",
+            upgradeFrontierLimited: "Limited",
+            upgradePriority: "Priority when busy",
+            upgradeYes: "Yes",
+            upgradeNo: "\u2014",
+            upgradeOpenPay: "Open the payment page",
+            upgradePasteRef: "Complete the payment, then paste this reference into the message:",
+            upgradeActivates: "The plan activates once the payment is confirmed. Reopen this dialog to check.",
+            upgradeCreated: "Order created. Reference:",
+            upgradeLoadFailed: "Could not load the plans. Please try again.",
+            upgradeFailed: "Could not start the upgrade.",
+            upgradeOffline: "Could not reach the server. Please try again.",
             redeemTitle: "Redeem a code",
             redeemHint: "Enter the code you received. Codes are not case sensitive.",
             redeemSubmit: "Redeem",
@@ -823,6 +920,34 @@
             noHistory: "暂无历史记录", 
             logout: "退出登录", 
             loginBtn: "登录 / 注册",
+            upgradeBtn: "升级",
+            upgradeYourPlan: "你的套餐",
+            upgradeTopTier: "你已经在最高级订阅了。",
+            upgradeTitle: "升级你的套餐",
+            upgradeSub: "按月计费，立即生效。",
+            upgradeOnPlan: "你当前是",
+            upgradePlanWord: "套餐",
+            upgradeDaysLeft: "天后到期",
+            upgradeCurrent: "当前套餐",
+            upgradeIncluded: "已包含",
+            upgradeChoose: "选择",
+            upgradeMsgPerDay: "每日消息数",
+            upgradeUnlimited: "不限",
+            upgradeModels: "可用模型",
+            upgradeAvailable: "个可用",
+            upgradeReasoning: "推理能力",
+            upgradeFrontier: "前沿研究预览",
+            upgradeFrontierLimited: "有限访问",
+            upgradePriority: "繁忙时优先",
+            upgradeYes: "是",
+            upgradeNo: "\u2014",
+            upgradeOpenPay: "打开支付页面",
+            upgradePasteRef: "完成付款后，把这串订单号粘贴到留言里：",
+            upgradeActivates: "付款确认后套餐即刻生效。重新打开此窗口即可查看。",
+            upgradeCreated: "订单已创建，订单号：",
+            upgradeLoadFailed: "无法加载套餐列表，请重试。",
+            upgradeFailed: "无法发起升级。",
+            upgradeOffline: "无法连接服务器，请重试。",
             welcomeTitle: "今天我能帮您什么？", 
             welcomeSub: "向我提问，我会尽力提供准确、有用的信息。",
             disclaimer: "Sigma 可能会犯错，重要信息请仔细核对。", 
@@ -854,6 +979,20 @@
     const userInfoDiv = document.getElementById('user-info-sidebar');
     const usernameSpan = document.getElementById('username-display');
     const userRoleSpan = document.getElementById('user-role-display');
+
+    // Upgrade dialog controls
+    (function () {
+        const btn = document.getElementById('upgrade-btn');
+        const modal = document.getElementById('upgrade-modal');
+        const close = document.getElementById('close-upgrade');
+        if (btn) btn.addEventListener('click', openUpgrade);
+        if (close) close.addEventListener('click', function () {
+            if (modal) modal.style.display = 'none';
+        });
+        if (modal) modal.addEventListener('click', function (e) {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+    })();
     const userAvatarSpan = document.getElementById('user-avatar');
     const attachmentBtn = document.getElementById('attachment-btn');
     const imagePreviewArea = document.getElementById('image-preview-area');
@@ -1642,6 +1781,20 @@
         currentEntitlements = ent;
         const isAdmin = ent.plan === 'admin';
         const isPro = ent.plan === 'pro';
+
+        // Always visible. Hiding it on the top tiers meant the people most likely
+        // to want to check what they are paying for could not open it. What
+        // changes instead is the dialog: plans at or below the current one are
+        // shown disabled rather than removed.
+        const upBtn = document.getElementById('upgrade-btn');
+        if (upBtn) {
+            upBtn.style.display = '';
+            const label = upBtn.querySelector('span');
+            const L = i18nMap[currentLang] || {};
+            if (label) label.innerText = (ent.plan === 'pro' || ent.plan === 'admin')
+                ? (L.upgradeYourPlan || 'Your plan')
+                : (L.upgradeBtn || 'Upgrade');
+        }
         userRoleSpan.classList.toggle('is-pro', isPro || isAdmin);
         userRoleSpan.classList.toggle('is-admin', isAdmin);
         if (isAdmin) {
@@ -1654,6 +1807,209 @@
             userRoleSpan.innerText = `Free Account · ${ent.daily_used || 0}/${ent.daily_limit} today`;
         } else {
             userRoleSpan.innerText = 'Free Account';
+        }
+    }
+
+    // ---------- Upgrade ----------
+    //
+    // The price list is fetched from the platform rather than written here. A
+    // client that decided its own prices would be right until the first change,
+    // and wrong in a way nobody notices afterwards.
+
+    let planCache = null;
+
+    function openUpgrade() {
+        const um = document.getElementById('upgrade-modal');
+        const msg = document.getElementById('upgrade-msg');
+        const pay = document.getElementById('upgrade-pay');
+        if (!um) return;
+        msg.innerText = ''; msg.className = 'redeem-msg';
+        pay.style.display = 'none'; pay.innerHTML = '';
+        um.style.display = 'flex';
+        loadPlans();
+    }
+
+    async function loadPlans() {
+        const list = document.getElementById('plan-list');
+        const msg = document.getElementById('upgrade-msg');
+        if (!list) return;
+
+        if (!planCache) {
+            list.innerHTML = '<div class="plan-loading">Loading…</div>';
+            try {
+                const res = await apiFetch(`${API_BASE}/api/plans`, { credentials: 'include' });
+                const data = await res.json();
+                planCache = (data && data.data) || [];
+            } catch (e) {
+                list.innerHTML = '';
+                msg.className = 'redeem-msg error';
+                msg.innerText = 'Could not load the plans. Please try again.';
+                return;
+            }
+        }
+        renderPlans();
+    }
+
+    // Higher number = better plan. Decides whether a card is somewhere the user
+    // can move to, or something they already have behind them.
+    const PLAN_RANK = { free: 0, plus: 1, pro: 2, admin: 3 };
+
+    function renderPlans() {
+        const list = document.getElementById('plan-list');
+        const table = document.getElementById('compare-table');
+        const banner = document.getElementById('current-plan');
+        const current = (currentEntitlements && currentEntitlements.plan) || 'free';
+        const myRank = PLAN_RANK[current] != null ? PLAN_RANK[current] : 0;
+        const currentName = (planCache.filter(p => p.id === current)[0] || {}).name || 'Free';
+
+        if (banner) {
+            const days = currentEntitlements && currentEntitlements.days_left;
+            const L = i18nMap[currentLang] || {};
+            const anyUpgrade = planCache.some(function (pl) {
+                const r = PLAN_RANK[pl.id] != null ? PLAN_RANK[pl.id] : 0;
+                return r > myRank;
+            });
+            banner.innerHTML = (L.upgradeOnPlan || 'You are on the') + ' <strong>' + currentName +
+                ' ' + (L.upgradePlanWord || 'plan') + '</strong>' +
+                (days != null ? ' \u2014 ' + days + ' ' + (L.upgradeDaysLeft || 'days remaining') : '') + '.' +
+                (anyUpgrade ? '' : '<br><span style="color:#56d364;">' +
+                    (L.upgradeTopTier || 'You are already on the highest plan.') + '</span>');
+        }
+
+        list.innerHTML = '';
+        planCache.forEach(function (plan) {
+            const card = document.createElement('div');
+            const isCurrent = plan.id === current;
+            // Pro is the tier worth steering people to.
+            card.className = 'plan-card' + (isCurrent ? ' current' : (plan.id === 'pro' ? ' featured' : ''));
+
+            const price = plan.price_cny > 0
+                ? '¥' + plan.price_cny + ' <small>/ month</small>'
+                : 'Free';
+
+            const L2 = i18nMap[currentLang] || {};
+            const planRank = PLAN_RANK[plan.id] != null ? PLAN_RANK[plan.id] : 0;
+            const purchasable = planRank > myRank;      // upward only
+
+            let cta;
+            if (isCurrent) {
+                cta = '<button class="plan-cta" disabled>' + (L2.upgradeCurrent || 'Current plan') + '</button>';
+            } else if (!purchasable) {
+                // At or below the current tier: nothing to buy, so the button says
+                // so rather than disappearing.
+                cta = '<button class="plan-cta" disabled>' + (L2.upgradeIncluded || 'Included') + '</button>';
+            } else {
+                cta = '<button class="plan-cta" data-plan="' + plan.id + '">' +
+                      (L2.upgradeChoose || 'Choose') + ' ' + plan.name + '</button>';
+            }
+
+            card.innerHTML =
+                '<div class="plan-name">' + plan.name + '</div>' +
+                '<div class="plan-price">' + price + '</div>' +
+                '<div class="plan-summary">' + (plan.summary || '') + '</div>' +
+                cta;
+
+            const btn = card.querySelector('button[data-plan]');
+            if (btn) {
+                btn.addEventListener('click', function () { startUpgrade(plan, card); });
+            }
+            list.appendChild(card);
+        });
+
+        renderComparison();
+    }
+
+    // The table says the same things as the cards, in a form that can be read
+    // across rather than down. Values come from the catalogue, so a limit
+    // changed on the platform shows up here without an edit.
+    function renderComparison() {
+        const table = document.getElementById('compare-table');
+        if (!table || !planCache.length) return;
+
+        const L = i18nMap[currentLang] || {};
+        const dash = '<span class="no">\u2014</span>';
+        const rows = [
+            [L.upgradeMsgPerDay || 'Messages per day',
+             p => p.daily_limit == null ? '<span class="yes">' + (L.upgradeUnlimited || 'Unlimited') + '</span>'
+                                        : String(p.daily_limit)],
+            [L.upgradeModels || 'Models',
+             p => (p.models ? p.models.length : '') + ' ' + (L.upgradeAvailable || 'available')],
+            [L.upgradeReasoning || 'Reasoning',
+             p => p.reasoning ? '<span class="yes">' + (L.upgradeYes || 'Yes') + '</span>' : dash],
+            [L.upgradeFrontier || 'Frontier research previews',
+             p => p.frontier ? '<span class="yes">' + (L.upgradeFrontierLimited || 'Limited') + '</span>' : dash],
+            [L.upgradePriority || 'Priority when busy',
+             p => p.priority ? '<span class="yes">' + (L.upgradeYes || 'Yes') + '</span>' : dash],
+        ];
+
+        let html = '<thead><tr><th></th>' +
+            planCache.map(p => '<th>' + p.name + '</th>').join('') +
+            '</tr></thead><tbody>';
+        rows.forEach(function (row) {
+            html += '<tr><td>' + row[0] + '</td>' +
+                planCache.map(p => '<td>' + row[1](p) + '</td>').join('') + '</tr>';
+        });
+        table.innerHTML = html + '</tbody>';
+    }
+
+    async function startUpgrade(plan, card) {
+        const msg = document.getElementById('upgrade-msg');
+        const pay = document.getElementById('upgrade-pay');
+        msg.innerText = ''; msg.className = 'redeem-msg';
+        card.classList.add('busy');
+
+        try {
+            const res = await apiFetch(`${API_BASE}/api/upgrade`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: plan.id })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                msg.className = 'redeem-msg error';
+                msg.innerText = data.message || data.error || 'Could not start the upgrade.';
+                return;
+            }
+            // The order may exist while the payment step does not. Say which,
+            // rather than showing a button that leads nowhere.
+            if (data.warning || !data.intent) {
+                msg.className = 'redeem-msg error';
+                msg.innerText = data.warning || 'No payment method is configured. Please contact us.';
+                return;
+            }
+
+            const orderId = (data.order && data.order.id) || '';
+            pay.style.display = '';
+            pay.innerHTML =
+                '<div>' + ((i18nMap[currentLang] || {}).upgradePasteRef ||
+                           'Complete the payment, then paste this reference into the message:') + '</div>' +
+                '<div class="ref">' + orderId + '</div>' +
+                '<div style="margin-top:6px;">' +
+                  '<a class="form-link" id="upgrade-open" target="_blank" rel="noopener">' +
+                    ((i18nMap[currentLang] || {}).upgradeOpenPay || 'Open the payment page') + '</a>' +
+                '</div>' +
+                '<div style="margin-top:6px; color:var(--text-secondary); font-size:12px;">' +
+                  ((i18nMap[currentLang] || {}).upgradeActivates ||
+                   'The plan activates once the payment is confirmed. Reopen this dialog to check.') +
+                '</div>';
+
+            const url = data.intent.url || data.intent.link;
+            const link = document.getElementById('upgrade-open');
+            if (url && link) {
+                link.href = url;
+                try { window.open(url, '_blank', 'noopener'); } catch (e) {}
+            } else if (link) {
+                link.style.display = 'none';
+            }
+
+            msg.className = 'redeem-msg success';
+            msg.innerText = 'Order created. Reference: ' + orderId;
+        } catch (e) {
+            msg.className = 'redeem-msg error';
+            msg.innerText = 'Could not reach the server. Please try again.';
+        } finally {
+            card.classList.remove('busy');
         }
     }
 
