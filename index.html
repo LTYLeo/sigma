@@ -868,6 +868,8 @@
             redeemBtn: "Redeem code",
             upgradeBtn: "Upgrade",
             upgradeYourPlan: "Your plan",
+            upgradeAdmin: "You are an Administrator.",
+            upgradeAdminNote: "Every model is available and nothing is metered.",
             upgradeTopTier: "You are already on the highest plan.",
             upgradeTitle: "Upgrade your plan",
             upgradeSub: "Billed monthly. Changes take effect immediately.",
@@ -922,6 +924,8 @@
             loginBtn: "登录 / 注册",
             upgradeBtn: "升级",
             upgradeYourPlan: "你的套餐",
+            upgradeAdmin: "你是管理员。",
+            upgradeAdminNote: "全部模型可用，且不计费。",
             upgradeTopTier: "你已经在最高级订阅了。",
             upgradeTitle: "升级你的套餐",
             upgradeSub: "按月计费，立即生效。",
@@ -1837,7 +1841,7 @@
         if (!planCache) {
             list.innerHTML = '<div class="plan-loading">Loading…</div>';
             try {
-                const res = await apiFetch(`${API_BASE}/api/plans`, { credentials: 'include' });
+                const res = await apiFetch(`${API_BASE}/plans`, { credentials: 'include' });
                 const data = await res.json();
                 planCache = (data && data.data) || [];
             } catch (e) {
@@ -1860,20 +1864,32 @@
         const banner = document.getElementById('current-plan');
         const current = (currentEntitlements && currentEntitlements.plan) || 'free';
         const myRank = PLAN_RANK[current] != null ? PLAN_RANK[current] : 0;
-        const currentName = (planCache.filter(p => p.id === current)[0] || {}).name || 'Free';
+        // The catalogue is the source of the display name, but it may be empty
+        // if the fetch failed - and reading a name out of an empty list is how
+        // an admin ended up being told they were on the Free plan.
+        const currentName = (planCache.filter(p => p.id === current)[0] || {}).name
+                            || current.charAt(0).toUpperCase() + current.slice(1);
 
         if (banner) {
             const days = currentEntitlements && currentEntitlements.days_left;
             const L = i18nMap[currentLang] || {};
-            const anyUpgrade = planCache.some(function (pl) {
-                const r = PLAN_RANK[pl.id] != null ? PLAN_RANK[pl.id] : 0;
-                return r > myRank;
-            });
-            banner.innerHTML = (L.upgradeOnPlan || 'You are on the') + ' <strong>' + currentName +
-                ' ' + (L.upgradePlanWord || 'plan') + '</strong>' +
-                (days != null ? ' \u2014 ' + days + ' ' + (L.upgradeDaysLeft || 'days remaining') : '') + '.' +
-                (anyUpgrade ? '' : '<br><span style="color:#56d364;">' +
-                    (L.upgradeTopTier || 'You are already on the highest plan.') + '</span>');
+            if (current === 'admin') {
+                // Staff are not a tier anyone buys, so naming a plan here would
+                // be misleading. Say what the account is.
+                banner.innerHTML = '<strong>' + (L.upgradeAdmin || 'You are an Administrator.') + '</strong>' +
+                    '<br><span style="color:var(--text-secondary); font-size:12.5px;">' +
+                    (L.upgradeAdminNote || 'Every model is available and nothing is metered.') + '</span>';
+            } else {
+                const anyUpgrade = planCache.some(function (pl) {
+                    const r = PLAN_RANK[pl.id] != null ? PLAN_RANK[pl.id] : 0;
+                    return r > myRank;
+                });
+                banner.innerHTML = (L.upgradeOnPlan || 'You are on the') + ' <strong>' + currentName +
+                    ' ' + (L.upgradePlanWord || 'plan') + '</strong>' +
+                    (days != null ? ' \u2014 ' + days + ' ' + (L.upgradeDaysLeft || 'days remaining') : '') + '.' +
+                    (anyUpgrade ? '' : '<br><span style="color:#56d364;">' +
+                        (L.upgradeTopTier || 'You are already on the highest plan.') + '</span>');
+            }
         }
 
         list.innerHTML = '';
@@ -1959,7 +1975,7 @@
         card.classList.add('busy');
 
         try {
-            const res = await apiFetch(`${API_BASE}/api/upgrade`, {
+            const res = await apiFetch(`${API_BASE}/upgrade`, {
                 method: 'POST', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ plan: plan.id })
