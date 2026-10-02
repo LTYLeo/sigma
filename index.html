@@ -944,6 +944,7 @@
             audioRecorded: "Audio recorded",
             audioLabel: "Audio",
             today: "today",
+            daysShort: "d",
             upgradeBtn: "Upgrade",
             upgradeYourPlan: "Your plan",
             upgradeAdmin: "You are an Administrator.",
@@ -1009,6 +1010,7 @@
             audioRecorded: "已录制音频",
             audioLabel: "音频",
             today: "今日",
+            daysShort: "天",
             redeemTitle: "兑换码",
             redeemHint: "输入你收到的兑换码。兑换码不区分大小写。",
             redeemSubmit: "兑换",
@@ -1917,9 +1919,10 @@
         if (isAdmin) {
             userRoleSpan.innerText = (i18nMap[currentLang] || {}).adminAccount || 'Admin Account';
         } else if (isPro) {
+            const _P = i18nMap[currentLang] || {};
             userRoleSpan.innerText = ent.days_left != null
-                ? `Pro Account · ${ent.days_left}d left`
-                : 'Pro Account';
+                ? (_P.proAccount || 'Pro Account') + ' · ' + ent.days_left + (_P.daysShort || 'd')
+                : (_P.proAccount || 'Pro Account');
         } else if (ent.daily_limit) {
             userRoleSpan.innerText = ((i18nMap[currentLang] || {}).freeAccount || 'Free Account') +
                 ' · ' + (ent.daily_used || 0) + '/' + ent.daily_limit + ' ' + ((i18nMap[currentLang] || {}).today || 'today');
