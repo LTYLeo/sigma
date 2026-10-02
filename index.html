@@ -6,6 +6,8 @@
     <title>Sigma — TAI Research</title>
     <link rel="icon" href="icon.jpg" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <style>
         * {
@@ -243,6 +245,37 @@
             background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.6);
             color: #fff; font-weight: 600;
         }
+
+        /* ---- Markdown in replies ------------------------------------------
+           Rendered output needs its own typography; without it a list, a table
+           and a heading all arrive as the same wall of text. */
+        .message-bubble > :first-child { margin-top: 0; }
+        .message-bubble > :last-child { margin-bottom: 0; }
+        .message-bubble p { margin: 0 0 10px; }
+        .message-bubble h1, .message-bubble h2, .message-bubble h3 {
+            font-size: 16px; margin: 16px 0 8px; font-weight: 600;
+        }
+        .message-bubble ul, .message-bubble ol { margin: 0 0 10px; padding-left: 22px; }
+        .message-bubble li { margin-bottom: 4px; }
+        .message-bubble code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 13px; background: rgba(255,255,255,.09);
+            padding: 2px 6px; border-radius: 5px;
+        }
+        .message-bubble pre {
+            background: rgba(0,0,0,.42); border: 1px solid var(--card-border);
+            border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 0 0 10px;
+        }
+        .message-bubble pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+        .message-bubble table { border-collapse: collapse; margin: 0 0 10px; font-size: 13px; display: block; overflow-x: auto; }
+        .message-bubble th, .message-bubble td { border: 1px solid var(--card-border); padding: 6px 10px; }
+        .message-bubble blockquote {
+            margin: 0 0 10px; padding: 8px 14px;
+            border-left: 3px solid rgba(59,130,246,.5);
+            background: rgba(59,130,246,.06); border-radius: 0 8px 8px 0;
+        }
+        .message-bubble a { color: #7bd1ff; }
+        .message-bubble hr { border: none; border-top: 1px solid var(--card-border); margin: 14px 0; }
 
         .plan-close {
             position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
@@ -1346,7 +1379,7 @@
         const btn = document.getElementById('think-toggle');
         if (!btn) return;
         const isTurbo = modelSelect.value === 'GTC-2.5 Turbo';
-        const allowed = !!((currentEntitlements || {}).reasoning);
+        const allowed = !!(((currentEntitlements || {}).limits || {}).reasoning);
         btn.style.display = (isTurbo && allowed) ? '' : 'none';
         btn.classList.toggle('on', thinkingEnabled);
     }
@@ -1754,7 +1787,7 @@
         
         const aiDiv = document.createElement('div');
         aiDiv.className = 'message message-ai';
-        aiDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble">${escapeHtml(conv.output)}</div>`;
+        aiDiv.innerHTML = `<div class="avatar-ai"><i class="fas fa-robot"></i></div><div class="message-bubble">${renderMarkdown(conv.output)}</div>`;
         
         chatInner.appendChild(userDiv);
         chatInner.appendChild(aiDiv);
@@ -1821,7 +1854,7 @@
         // Conversation context is a Pro capability. The server drops it if the
         // plan does not include it; sending it only when allowed keeps the
         // request honest about what was actually used.
-        if ((currentEntitlements || {}).context && conversationTurns.length) {
+        if ((((currentEntitlements || {}).limits) || {}).context && conversationTurns.length) {
             payload.messages = conversationTurns.slice(-MAX_CONTEXT_TURNS * 2);
         }
         // Reasoning is Pro-only as well, and off unless the switch is on.
@@ -1878,8 +1911,7 @@
                                 }
                                 if (data.chunk) {
                                     fullResponse += data.chunk;
-                                    bubbleDiv.textContent = fullResponse;
-                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                    renderMarkdownThrottled(bubbleDiv, fullResponse, false);
                                 }
                                 if (data.audio) {
                                     playAudioChunk(data.audio);
@@ -1893,12 +1925,12 @@
 
                 if (!fullResponse) {
                     fullResponse = 'No response from model.';
-                    bubbleDiv.textContent = fullResponse;
                 }
+                renderMarkdownThrottled(bubbleDiv, fullResponse, true);
             } else {
                 const data = await response.json();
                 fullResponse = data.generated_text || 'No response from model.';
-                bubbleDiv.textContent = fullResponse;
+                renderMarkdownThrottled(bubbleDiv, fullResponse, true);
                 if (data.audio) {
                     const audioBytes = atob(data.audio);
                     const arrayBuffer = new ArrayBuffer(audioBytes.length);
@@ -1936,6 +1968,32 @@
             updateSendButton();
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
+    }
+
+    // Markdown for model output. Sanitised because the text is generated: a
+    // model that emits a <script> tag should not get to run it here.
+    //
+    // Streamed replies would otherwise re-render on every chunk, which is
+    // wasteful for a long answer, so renders are throttled and the final one is
+    // always exact.
+    let _lastRender = 0;
+    function renderMarkdown(text) {
+        if (!text) return '';
+        if (window.marked && window.DOMPurify) {
+            try {
+                return window.DOMPurify.sanitize(window.marked.parse(text, { breaks: true, gfm: true }));
+            } catch (e) { /* fall through to plain text */ }
+        }
+        return escapeHtml(text).replace(/\n/g, '<br>');
+    }
+
+    function renderMarkdownThrottled(el, text, force) {
+        const now = Date.now();
+        if (!force && now - _lastRender < 80) return;
+        _lastRender = now;
+        el.innerHTML = renderMarkdown(text);
+        const container = document.getElementById('chat-container');
+        if (container) container.scrollTop = container.scrollHeight;
     }
 
     function escapeHtml(str) { 
